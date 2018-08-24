@@ -14,8 +14,11 @@ import scala.RuntimeException
 
 object PageParse {
   def main(args: Array[String]) {
-    var pageFile = args(0)
-    println("Using %s".format(pageFile))
+    var pageFilePath = args(0)
+    println("Using %s".format(pageFilePath))
+    val conf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[2]")
+    val sc = new SparkContext(conf)
+    val file = sc.textFile(pageFilePath, 4)
   }
 
 }
