@@ -1,10 +1,30 @@
 package wiki
+import java.text.SimpleDateFormat
+import java.util.Date
 
 abstract class WikipediaElement {
   def toCsv():String
 }
 
-class WikipediaPage(input: String) extends WikipediaElement {
+
+case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String, counter:Int, 
+                          isRedirect:Boolean, isNew:Boolean, random:Double, touched:Date, linksUpdated:String,
+                          latest:Int, len:Int, contentModel:String, lang:String) extends WikipediaElement {
+  def toCsv():String = {
+    val sb = new StringBuilder
+    sb.append(id)
+    sb += ','
+    sb.append(namespace)
+    sb += ','
+    sb ++= title
+    sb += ','
+    sb.append(isRedirect)
+   
+    sb.toString()
+  }
+}
+
+class WikipediaPageParser extends Serializable  {
   
   /*
    * # page
@@ -23,49 +43,30 @@ class WikipediaPage(input: String) extends WikipediaElement {
 `page_content_model` varbinary(32) DEFAULT NULL,
 `page_lang` varbinary(35) DEFAULT NULL,
    */
-  val pageRegex = """(\d+),(\d+),'(.*?)','(.*?)',(\d+),([01]),([01]),([\d\.]+?),'(\d{14})',(.*?),(\d+),(\d+),(.*?)""".r
-  /*val (id:Int,
-       namespace:Int,
-       title:String,
-       restriction: String,
-       counter:Int,
-       isRedirect:Boolean,
-       isNew:Boolean,
-       random:Double,
-       touched:Int,
-       linksUpdated:String,
-       len:Int,
-       contentModel:Int,
-       lang:String)*/
-      //val input_clean = input.substring(1, input.size - 2)
-      val data = {
+  val pageRegex = """(\d+),(\d+),'(.*?)','(.*?)',(\d+),([01]),([01]),([\d\.]+?),'(\d{14})',(.*?),(\d+),(\d+),(.*?),(.*?)""".r
+  val timestampFormat = new SimpleDateFormat("yyyyMMddHHmmss") 
+  def parseLine(lineInput:String):WikipediaPage = {
   
-       input match {
+       lineInput match {
         case pageRegex(id_r, namespace_r, title_r, restriction_r, counter_r, isRedirect_r, isNew_r, random_r, 
-            touched_r, linksUpdated_r, len_r, contentModel_r, lang_r) => {
+            touched_r, linksUpdated_r, latest_r, len_r, contentModel_r, lang_r) => {
               val id_s = id_r.toInt
               val namespace_s = namespace_r.toInt
               val counter_s = counter_r.toInt
               val isRedirect_s = isRedirect_r.toInt == 1
               val isNew_s = isNew_r.toInt == 1
               val random_s = random_r.toDouble
-              //val touched_s = touched_r.toLong
+              val touched_s = timestampFormat.parse(touched_r)
+              val latest_s = latest_r.toInt
               val len_s = len_r.toInt
-              val contentModel_s = contentModel_r.toInt
-              println("Page %d %s".format(id_s, title_r))
-              (id_s, namespace_s, title_r, restriction_r, counter_s, isRedirect_s, isNew_s, random_s,
-                  touched_r, linksUpdated_r, len_s, contentModel_s, lang_r)
+              
+              
+              WikipediaPage(id_s, namespace_s, title_r, restriction_r, counter_s, isRedirect_s, isNew_s, random_s,
+                  touched_s, linksUpdated_r, latest_s, len_s, contentModel_r, lang_r)
          }
+        
       }
   }
   
-  def toCsv():String = {
-    val sb = new StringBuilder
-    sb.append(data._1)
-    sb += ','
-    sb.append(data._2)
-    sb += ','
-    sb ++= data._3
-    sb.toString()
-  }
+  
 }
