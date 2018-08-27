@@ -15,16 +15,16 @@ import scala.RuntimeException
 object PageParse {
   
   def parseLine(line: String):List[String] = {
-    val grp = """\((.*?)\)""".r
-    val spl = line.split(" VALUES ")(1)
-    grp.findAllIn(spl).toList
+    val spl = line.split(" VALUES ")(1).trim
+    val splt = spl.substring(1, spl.length - 2)
+    splt.split("\\),\\(").toList
     
   }
     
   
   def main(args: Array[String]) {
     var filePath = args(0)
-    var fileType = args(1)
+    var fileType = args(1) // TODO detect file type from CREATE TABLE statement
     println("Reading %s".format(filePath))
     
     val conf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[2]")
@@ -32,9 +32,10 @@ object PageParse {
     
     val lines = sc.textFile(filePath, 4)
     val sqlLines = lines.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(fileType)))
-    val records = sqlLines.map(l => parseLine(l))
-    val rec_len = records.map(_.length)
-    println("File contains %d lines, %d inserts and %d records".format(lines.count(), sqlLines.count(), rec_len.sum().toInt))
+    val records = sqlLines.flatMap(l => parseLine(l))
+    val page_records = records.map(l => new WikipediaPage(l))
+    val page_csv = page_records.map(p => p.toCsv)
+    println("File contains %d lines, %d inserts and %d records".format(lines.count(), sqlLines.count(), page_records.count()))
     
   }
 
