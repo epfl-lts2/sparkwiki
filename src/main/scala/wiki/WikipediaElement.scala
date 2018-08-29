@@ -7,9 +7,11 @@ abstract class WikipediaElement {
   def toCsv():String
 }
 
-case object DummyElement extends WikipediaElement {
-  def toCsv():String = ""
+trait WikipediaElementParser[T <: WikipediaElement] {
+  def parseLine(lineInput:String): T
 }
+
+
 case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String, counter:Int, 
                           isRedirect:Boolean, isNew:Boolean, random:Double, touched:Timestamp, linksUpdated:String,
                           latest:Int, len:Int, contentModel:String, lang:String) extends WikipediaElement {
@@ -41,7 +43,19 @@ case class WikipediaPageLink(from:Int, namespace:Int, title:String, fromNamespac
   }
 }
 
-class WikipediaPageParser extends Serializable  {
+case class WikipediaRedirect(from:Int, targetNamespace:Int, title:String, interwiki:String, fragment:String) extends WikipediaElement {
+  def toCsv():String = {
+    val sb = new StringBuilder
+    sb.append(from)
+    sb += ','
+    sb.append(targetNamespace)
+    sb += ','
+    sb ++=title
+    sb.toString
+  }
+}
+
+class WikipediaPageParser extends Serializable with WikipediaElementParser[WikipediaPage]  {
   
   /*
    * # page
@@ -91,7 +105,7 @@ class WikipediaPageParser extends Serializable  {
   }
 }
 
-class WikipediaPageLinkParser extends Serializable {
+class WikipediaPageLinkParser extends Serializable with WikipediaElementParser[WikipediaPageLink] {
   /*
    * # pagelinks
 `pl_from` int(8) unsigned NOT NULL DEFAULT '0',
@@ -112,6 +126,31 @@ class WikipediaPageLinkParser extends Serializable {
       case _ => {
         println("Parse error %s".format(lineInput))
         WikipediaPageLink(-1, -1, "", -1)
+      }
+    }
+  }
+}
+
+class WikipediaRedirectParser extends Serializable with WikipediaElementParser[WikipediaRedirect] {
+  /* TABLE `redirect` (
+  `rd_from` int(8) unsigned NOT NULL DEFAULT '0',
+  `rd_namespace` int(11) NOT NULL DEFAULT '0',
+  `rd_title` varbinary(255) NOT NULL DEFAULT '',
+  `rd_interwiki` varbinary(32) DEFAULT NULL,
+  `rd_fragment` varbinary(255) DEFAULT NULL,
+   */
+  val redirectRegex = """(\d+),(\d+),'(.*?)',(.*?),(.*?)""".r
+  
+  def parseLine(lineInput: String):WikipediaRedirect = {
+    lineInput match {
+      case redirectRegex(from_r, targetNamespace_r, title_r, interwiki_r, fragment_r) => {
+        val from_s = from_r.toInt
+        val targetNamespace_s = targetNamespace_r.toInt
+        WikipediaRedirect(from_s, targetNamespace_s, title_r, interwiki_r, fragment_r)
+      }
+      case _ => {
+        println("Parse error %s".format(lineInput))
+        WikipediaRedirect(-1, -1, "", "", "")
       }
     }
   }

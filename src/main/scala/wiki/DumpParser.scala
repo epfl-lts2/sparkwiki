@@ -54,6 +54,14 @@ object DumpParser {
     writeCsv(pl_df, outputPath)
   }
   
+  def readRedirect(lines:RDD[String], outputPath:String, session: SparkSession) = {
+    val wrp = new WikipediaRedirectParser
+    val redirect_records = lines.map(l => wrp.parseLine(l)).filter(w => w.targetNamespace == 0)
+    
+    val redirect_df = session.createDataFrame(redirect_records)
+    writeCsv(redirect_df, outputPath)
+  }
+  
   def main(args: Array[String]) {
     val conf = new Conf(args) // TODO detect type from CREATE TABLE statement
     println("Reading %s".format(conf.dumpFilePath()))
@@ -70,6 +78,7 @@ object DumpParser {
     dumpType match {
       case "page" => readPages(records, conf.outputPath(), session)
       case "pagelinks" => readPageLinks(records, conf.outputPath(), session)
+      case "redirect" => readRedirect(records, conf.outputPath(), session)
     }
     
   }
