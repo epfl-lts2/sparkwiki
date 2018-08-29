@@ -6,7 +6,9 @@ abstract class WikipediaElement {
   def toCsv():String
 }
 
-
+case object DummyElement extends WikipediaElement {
+  def toCsv():String = ""
+}
 case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String, counter:Int, 
                           isRedirect:Boolean, isNew:Boolean, random:Double, touched:Date, linksUpdated:String,
                           latest:Int, len:Int, contentModel:String, lang:String) extends WikipediaElement {
@@ -21,6 +23,20 @@ case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String
     sb.append(isRedirect)
    
     sb.toString()
+  }
+}
+
+case class WikipediaPageLink(from:Int, namespace:Int, title:String, fromNamespace:Int) extends WikipediaElement {
+  def toCsv():String = {
+    val sb = new StringBuilder
+    sb.append(from)
+    sb += ','
+    sb.append(fromNamespace)
+    sb += ','
+    sb.append(namespace)
+    sb += ','
+    sb ++=title
+    sb.toString
   }
 }
 
@@ -43,7 +59,7 @@ class WikipediaPageParser extends Serializable  {
 `page_content_model` varbinary(32) DEFAULT NULL,
 `page_lang` varbinary(35) DEFAULT NULL,
    */
-  val pageRegex = """(\d+),(\d+),'(.*?)','(.*?)',(\d+),([01]),([01]),([\d\.]+?),'(\d{14})',(.*?),(\d+),(\d+),(.*?),(.*?)""".r
+  val pageRegex = """(\d+),(\d+),'(.*?)','(.*?)',(\d+),([01]),([01]),([\d\.]+?),'(\d{14})',(.*?),(\d+),(\d+),(.*?),(.*)""".r
   val timestampFormat = new SimpleDateFormat("yyyyMMddHHmmss") 
   def parseLine(lineInput:String):WikipediaPage = {
   
@@ -64,9 +80,38 @@ class WikipediaPageParser extends Serializable  {
               WikipediaPage(id_s, namespace_s, title_r, restriction_r, counter_s, isRedirect_s, isNew_s, random_s,
                   touched_s, linksUpdated_r, latest_s, len_s, contentModel_r, lang_r)
          }
+        case _ =>  {
+          println("Parse error %s".format(lineInput))
+          WikipediaPage(-1, -1, "", "", 0, false, false, 0,
+                  timestampFormat.parse("19700101000000"), "", 0, 0, "", "")
+        }
         
       }
   }
+}
+
+class WikipediaPageLinkParser extends Serializable {
+  /*
+   * # pagelinks
+`pl_from` int(8) unsigned NOT NULL DEFAULT '0',
+`pl_namespace` int(11) NOT NULL DEFAULT '0',
+`pl_title` varbinary(255) NOT NULL DEFAULT '',
+`pl_from_namespace` int(11) NOT NULL DEFAULT '0'*/
+  val plRegex = """(\d+),(\d+),'(.*?)',(\d+)""".r
   
-  
+  def parseLine(lineInput: String):WikipediaPageLink = {
+    lineInput match {
+      case plRegex(from_r, namespace_r, title_r, from_ns_r) => {
+        val from_s = from_r.toInt
+        val namespace_s = namespace_r.toInt
+        val from_ns_s = from_ns_r.toInt
+        
+        WikipediaPageLink(from_s, namespace_s, title_r, from_ns_s)
+      }
+      case _ => {
+        println("Parse error %s".format(lineInput))
+        WikipediaPageLink(-1, -1, "", -1)
+      }
+    }
+  }
 }
