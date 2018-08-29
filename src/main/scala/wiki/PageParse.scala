@@ -34,7 +34,7 @@ object PageParse {
     // keep only namespace 0 and remove dummies for now
     val page_records = lines.map(l => wp.parseLine(l)).filter(w => w.namespace == 0 && w.id > 0)
     
-    val page_df = session.createDataFrame(page_records)
+    val page_df = session.createDataFrame(page_records).select("id", "namespace", "title", "isRedirect", "isNew")
     writeCsv(page_df, outputPath)
   }
   

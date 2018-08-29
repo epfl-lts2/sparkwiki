@@ -1,5 +1,6 @@
 package wiki
 import java.text.SimpleDateFormat
+import java.sql.Timestamp
 import java.util.Date
 
 abstract class WikipediaElement {
@@ -10,7 +11,7 @@ case object DummyElement extends WikipediaElement {
   def toCsv():String = ""
 }
 case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String, counter:Int, 
-                          isRedirect:Boolean, isNew:Boolean, random:Double, touched:Date, linksUpdated:String,
+                          isRedirect:Boolean, isNew:Boolean, random:Double, touched:Timestamp, linksUpdated:String,
                           latest:Int, len:Int, contentModel:String, lang:String) extends WikipediaElement {
   def toCsv():String = {
     val sb = new StringBuilder
@@ -78,12 +79,12 @@ class WikipediaPageParser extends Serializable  {
               
               
               WikipediaPage(id_s, namespace_s, title_r, restriction_r, counter_s, isRedirect_s, isNew_s, random_s,
-                  touched_s, linksUpdated_r, latest_s, len_s, contentModel_r, lang_r)
+                  new Timestamp(touched_s.getTime), linksUpdated_r, latest_s, len_s, contentModel_r, lang_r)
          }
         case _ =>  {
           println("Parse error %s".format(lineInput))
           WikipediaPage(-1, -1, "", "", 0, false, false, 0,
-                  timestampFormat.parse("19700101000000"), "", 0, 0, "", "")
+                  new Timestamp(timestampFormat.parse("19700101000000").getTime), "", 0, 0, "", "")
         }
         
       }
