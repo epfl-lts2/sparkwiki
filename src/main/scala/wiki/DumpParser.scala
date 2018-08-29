@@ -11,8 +11,16 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession}
 
 import scala.RuntimeException
+import org.rogach.scallop._
 
-object PageParse {
+class Conf(args: Seq[String]) extends ScallopConf(args) {
+  val dumpFilePath = opt[String](required = true, name= "dumpFilePath")
+  val dumpType = opt[String](required = true, name="dumpType")
+  val outputPath = opt[String](required = true, name="outputPath")
+  verify()
+}
+
+object DumpParser {
   
   def splitSqlInsertLine(line: String):List[String] = {
     val spl = line.split(" VALUES ")(1).trim
@@ -23,7 +31,7 @@ object PageParse {
     
   def writeCsv(df:DataFrame, outputPath:String) = {
     df.write.option("delimiter", "\t")
-            .option("header", true)
+            .option("header", false)
             .option("quote", "")
             .csv(outputPath)
   }
@@ -47,23 +55,21 @@ object PageParse {
   }
   
   def main(args: Array[String]) {
-    val filePath = args(0)
-    val fileType = args(1) // TODO detect file type from CREATE TABLE statement
-    val outputPath = args(2)
-    println("Reading %s".format(filePath))
-    
-    val conf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
-    val session = SparkSession.builder.config(conf).getOrCreate()
+    val conf = new Conf(args) // TODO detect type from CREATE TABLE statement
+    println("Reading %s".format(conf.dumpFilePath()))
+    val dumpType = conf.dumpType()
+    val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
+    val session = SparkSession.builder.config(sconf).getOrCreate()
     val sctx = session.sparkContext
     
     
-    val lines = sctx.textFile(filePath, 4)
+    val lines = sctx.textFile(conf.dumpFilePath(), 4)
     
-    val sqlLines = lines.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(fileType)))
+    val sqlLines = lines.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(dumpType)))
     val records = sqlLines.flatMap(l => splitSqlInsertLine(l))
-    fileType match {
-      case "page" => readPages(records, outputPath, session)
-      case "pagelinks" => readPageLinks(records, outputPath, session)
+    dumpType match {
+      case "page" => readPages(records, conf.outputPath(), session)
+      case "pagelinks" => readPageLinks(records, conf.outputPath(), session)
     }
     
   }
