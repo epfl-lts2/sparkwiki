@@ -17,6 +17,7 @@ class Conf(args: Seq[String]) extends ScallopConf(args) {
   val dumpFilePath = opt[String](required = true, name= "dumpFilePath")
   val dumpType = opt[String](required = true, name="dumpType")
   val outputPath = opt[String](required = true, name="outputPath")
+  val neo4j = opt[Boolean](name="neo4j")
   verify()
 }
 
@@ -36,31 +37,6 @@ object DumpParser {
             .csv(outputPath)
   }
   
-  def readPages(lines:RDD[String], outputPath:String, session: SparkSession) = {
-    val wp = new WikipediaPageParser
-    
-    // keep only namespace 0 and remove dummies for now
-    val page_records = lines.map(l => wp.parseLine(l)).filter(w => w.namespace == 0 && w.id > 0)
-    
-    val page_df = session.createDataFrame(page_records).select("id", "namespace", "title", "isRedirect", "isNew")
-    writeCsv(page_df, outputPath)
-  }
-  
-  def readPageLinks(lines:RDD[String], outputPath:String, session:SparkSession) = {
-    val wp = new WikipediaPageLinkParser
-    val pl_records = lines.map(l => wp.parseLine(l)).filter(w => w.namespace == 0 && w.fromNamespace == 0)
-    
-    val pl_df = session.createDataFrame(pl_records)
-    writeCsv(pl_df, outputPath)
-  }
-  
-  def readRedirect(lines:RDD[String], outputPath:String, session: SparkSession) = {
-    val wrp = new WikipediaRedirectParser
-    val redirect_records = lines.map(l => wrp.parseLine(l)).filter(w => w.targetNamespace == 0)
-    
-    val redirect_df = session.createDataFrame(redirect_records)
-    writeCsv(redirect_df, outputPath)
-  }
   
   def main(args: Array[String]) {
     val conf = new Conf(args) // TODO detect type from CREATE TABLE statement
@@ -75,11 +51,15 @@ object DumpParser {
     
     val sqlLines = lines.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(dumpType)))
     val records = sqlLines.flatMap(l => splitSqlInsertLine(l))
-    dumpType match {
-      case "page" => readPages(records, conf.outputPath(), session)
-      case "pagelinks" => readPageLinks(records, conf.outputPath(), session)
-      case "redirect" => readRedirect(records, conf.outputPath(), session)
+    val parser = dumpType match {
+      case "page" => new WikipediaPageParser
+      case "pagelinks" => new WikipediaPageLinkParser
+      case "redirect" => new WikipediaRedirectParser
     }
+    
+    val df = parser.getDataFrame(session, records)
+    writeCsv(df, conf.outputPath())
+    
     
   }
 

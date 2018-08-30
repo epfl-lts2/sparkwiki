@@ -2,57 +2,31 @@ package wiki
 import java.text.SimpleDateFormat
 import java.sql.Timestamp
 import java.util.Date
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql._
+import scala.reflect.ClassTag
 
-abstract class WikipediaElement {
-  def toCsv():String
-}
+abstract class WikipediaElement extends Serializable
 
-trait WikipediaElementParser[T <: WikipediaElement] {
+trait WikipediaElementParser[T <: WikipediaElement with Product] {
   def parseLine(lineInput:String): T
+  def filterElt(t: T): Boolean
+  def getDataFrame(session: SparkSession, lines: RDD[String]): DataFrame
 }
 
 
 case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String, counter:Int, 
                           isRedirect:Boolean, isNew:Boolean, random:Double, touched:Timestamp, linksUpdated:String,
                           latest:Int, len:Int, contentModel:String, lang:String) extends WikipediaElement {
-  def toCsv():String = {
-    val sb = new StringBuilder
-    sb.append(id)
-    sb += ','
-    sb.append(namespace)
-    sb += ','
-    sb ++= title
-    sb += ','
-    sb.append(isRedirect)
-   
-    sb.toString()
-  }
+  
 }
 
 case class WikipediaPageLink(from:Int, namespace:Int, title:String, fromNamespace:Int) extends WikipediaElement {
-  def toCsv():String = {
-    val sb = new StringBuilder
-    sb.append(from)
-    sb += ','
-    sb.append(fromNamespace)
-    sb += ','
-    sb.append(namespace)
-    sb += ','
-    sb ++=title
-    sb.toString
-  }
+  
 }
 
 case class WikipediaRedirect(from:Int, targetNamespace:Int, title:String, interwiki:String, fragment:String) extends WikipediaElement {
-  def toCsv():String = {
-    val sb = new StringBuilder
-    sb.append(from)
-    sb += ','
-    sb.append(targetNamespace)
-    sb += ','
-    sb ++=title
-    sb.toString
-  }
+  
 }
 
 class WikipediaPageParser extends Serializable with WikipediaElementParser[WikipediaPage]  {
@@ -103,6 +77,11 @@ class WikipediaPageParser extends Serializable with WikipediaElementParser[Wikip
         
       }
   }
+  
+  def filterElt(t: WikipediaPage):Boolean = t.namespace == 0 && t.id > 0
+  def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
+    session.createDataFrame(lines.map(l => parseLine(l)).filter(filterElt)).select("id", "namespace", "title", "isRedirect", "isNew")
+  }
 }
 
 class WikipediaPageLinkParser extends Serializable with WikipediaElementParser[WikipediaPageLink] {
@@ -129,6 +108,12 @@ class WikipediaPageLinkParser extends Serializable with WikipediaElementParser[W
       }
     }
   }
+  
+  
+  def filterElt(t:WikipediaPageLink): Boolean = t.namespace == 0 && t.fromNamespace == 0
+  def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
+    session.createDataFrame(lines.map(l => parseLine(l)).filter(filterElt))
+  }
 }
 
 class WikipediaRedirectParser extends Serializable with WikipediaElementParser[WikipediaRedirect] {
@@ -153,5 +138,11 @@ class WikipediaRedirectParser extends Serializable with WikipediaElementParser[W
         WikipediaRedirect(-1, -1, "", "", "")
       }
     }
+  }
+  
+  
+  def filterElt(t: WikipediaRedirect):Boolean = t.targetNamespace == 0
+  def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
+    session.createDataFrame(lines.map(l => parseLine(l)).filter(filterElt))
   }
 }
