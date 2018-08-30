@@ -9,7 +9,7 @@ import scala.reflect.ClassTag
 abstract class WikipediaElement extends Serializable
 
 trait WikipediaElementParser[T <: WikipediaElement with Product] {
-  def parseLine(lineInput:String): T
+  def parseLine(lineInput:String): List[T]
   def filterElt(t: T): Boolean
   def getDataFrame(session: SparkSession, lines: RDD[String]): DataFrame
 }
@@ -48,39 +48,22 @@ class WikipediaPageParser extends Serializable with WikipediaElementParser[Wikip
 `page_content_model` varbinary(32) DEFAULT NULL,
 `page_lang` varbinary(35) DEFAULT NULL,
    */
-  val pageRegex = """(\d+),(\d+),'(.*?)','(.*?)',(\d+),([01]),([01]),([\d\.]+?),'(\d{14})',(.*?),(\d+),(\d+),(.*?),(.*)""".r
+  val pageRegex = """\((\d+),(\d+),'(.*?)','(.*?)',(\d+),([01]),([01]),([\d\.]+?),'(\d{14})',(.*?),(\d+),(\d+),(.*?),(.*?)\)""".r
   val timestampFormat = new SimpleDateFormat("yyyyMMddHHmmss") 
-  def parseLine(lineInput:String):WikipediaPage = {
+  def parseLine(lineInput:String):List[WikipediaPage] = {
   
-       lineInput match {
-        case pageRegex(id_r, namespace_r, title_r, restriction_r, counter_r, isRedirect_r, isNew_r, random_r, 
-            touched_r, linksUpdated_r, latest_r, len_r, contentModel_r, lang_r) => {
-              val id_s = id_r.toInt
-              val namespace_s = namespace_r.toInt
-              val counter_s = counter_r.toInt
-              val isRedirect_s = isRedirect_r.toInt == 1
-              val isNew_s = isNew_r.toInt == 1
-              val random_s = random_r.toDouble
-              val touched_s = timestampFormat.parse(touched_r)
-              val latest_s = latest_r.toInt
-              val len_s = len_r.toInt
-              
-              
-              WikipediaPage(id_s, namespace_s, title_r, restriction_r, counter_s, isRedirect_s, isNew_s, random_s,
-                  new Timestamp(touched_s.getTime), linksUpdated_r, latest_s, len_s, contentModel_r, lang_r)
-         }
-        case _ =>  {
-          println("Parse error %s".format(lineInput))
-          WikipediaPage(-1, -1, "", "", 0, false, false, 0,
-                  new Timestamp(timestampFormat.parse("19700101000000").getTime), "", 0, 0, "", "")
-        }
-        
-      }
+    val r = pageRegex.findAllIn(lineInput).matchData.toList
+    r.map(m =>  WikipediaPage(m.group(1).toInt, m.group(2).toInt, m.group(3), m.group(4), m.group(5).toInt,
+                        m.group(6).toInt == 1, m.group(7).toInt == 1, m.group(8).toDouble, 
+                        new Timestamp(timestampFormat.parse(m.group(9)).getTime), m.group(10), m.group(11).toInt, 
+                        m.group(12).toInt, m.group(13), m.group(14)))
+      
   }
+    
   
   def filterElt(t: WikipediaPage):Boolean = t.namespace == 0 && t.id > 0
   def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
-    session.createDataFrame(lines.map(l => parseLine(l)).filter(filterElt)).select("id", "namespace", "title", "isRedirect", "isNew")
+    session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt)).select("id", "namespace", "title", "isRedirect", "isNew")
   }
 }
 
@@ -91,28 +74,17 @@ class WikipediaPageLinkParser extends Serializable with WikipediaElementParser[W
 `pl_namespace` int(11) NOT NULL DEFAULT '0',
 `pl_title` varbinary(255) NOT NULL DEFAULT '',
 `pl_from_namespace` int(11) NOT NULL DEFAULT '0'*/
-  val plRegex = """(\d+),(\d+),'(.*?)',(\d+)""".r
+  val plRegex = """\((\d+),(\d+),'(.*?)',(\d+)\)""".r
   
-  def parseLine(lineInput: String):WikipediaPageLink = {
-    lineInput match {
-      case plRegex(from_r, namespace_r, title_r, from_ns_r) => {
-        val from_s = from_r.toInt
-        val namespace_s = namespace_r.toInt
-        val from_ns_s = from_ns_r.toInt
-        
-        WikipediaPageLink(from_s, namespace_s, title_r, from_ns_s)
-      }
-      case _ => {
-        println("Parse error %s".format(lineInput))
-        WikipediaPageLink(-1, -1, "", -1)
-      }
-    }
+  def parseLine(lineInput: String):List[WikipediaPageLink] = {
+    val r = plRegex.findAllIn(lineInput).matchData.toList
+    r.map(m => WikipediaPageLink(m.group(1).toInt, m.group(2).toInt, m.group(3), m.group(4).toInt)) 
   }
   
   
   def filterElt(t:WikipediaPageLink): Boolean = t.namespace == 0 && t.fromNamespace == 0
   def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
-    session.createDataFrame(lines.map(l => parseLine(l)).filter(filterElt))
+    session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt))
   }
 }
 
@@ -124,25 +96,16 @@ class WikipediaRedirectParser extends Serializable with WikipediaElementParser[W
   `rd_interwiki` varbinary(32) DEFAULT NULL,
   `rd_fragment` varbinary(255) DEFAULT NULL,
    */
-  val redirectRegex = """(\d+),(\d+),'(.*?)',(.*?),(.*?)""".r
+  val redirectRegex = """\((\d+),(\d+),'(.*?)',(.*?),(.*?)\)""".r
   
-  def parseLine(lineInput: String):WikipediaRedirect = {
-    lineInput match {
-      case redirectRegex(from_r, targetNamespace_r, title_r, interwiki_r, fragment_r) => {
-        val from_s = from_r.toInt
-        val targetNamespace_s = targetNamespace_r.toInt
-        WikipediaRedirect(from_s, targetNamespace_s, title_r, interwiki_r, fragment_r)
-      }
-      case _ => {
-        println("Parse error %s".format(lineInput))
-        WikipediaRedirect(-1, -1, "", "", "")
-      }
-    }
+  def parseLine(lineInput: String):List[WikipediaRedirect] = {
+    val r = redirectRegex.findAllIn(lineInput).matchData.toList
+    r.map(m => WikipediaRedirect(m.group(1).toInt, m.group(2).toInt, m.group(3), m.group(4), m.group(5)))
   }
   
   
   def filterElt(t: WikipediaRedirect):Boolean = t.targetNamespace == 0
   def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
-    session.createDataFrame(lines.map(l => parseLine(l)).filter(filterElt))
+    session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt))
   }
 }

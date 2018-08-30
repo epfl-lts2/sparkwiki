@@ -23,11 +23,8 @@ class Conf(args: Seq[String]) extends ScallopConf(args) {
 
 object DumpParser {
   
-  def splitSqlInsertLine(line: String):List[String] = {
-    val spl = line.split(" VALUES ")(1).trim
-    val splt = spl.substring(1, spl.length - 2)
-    splt.split("\\),\\(").toList
-    
+  def splitSqlInsertLine(line: String):String = {
+    line.split(" VALUES ")(1).trim
   }
     
   def writeCsv(df:DataFrame, outputPath:String) = {
@@ -51,7 +48,7 @@ object DumpParser {
     val lines = sctx.textFile(conf.dumpFilePath(), 4)
     
     val sqlLines = lines.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(dumpType)))
-    val records = sqlLines.flatMap(l => splitSqlInsertLine(l))
+    val records = sqlLines.map(l => splitSqlInsertLine(l))
     val parser = dumpType match {
       case "page" => new WikipediaPageParser
       case "pagelinks" => new WikipediaPageLinkParser
