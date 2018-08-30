@@ -17,7 +17,7 @@ class Conf(args: Seq[String]) extends ScallopConf(args) {
   val dumpFilePath = opt[String](required = true, name= "dumpFilePath")
   val dumpType = opt[String](required = true, name="dumpType")
   val outputPath = opt[String](required = true, name="outputPath")
-  val neo4j = opt[Boolean](name="neo4j")
+  val outputFormat = opt[String](name="outputFormat", default=Some("csv"))
   verify()
 }
 
@@ -35,11 +35,16 @@ object DumpParser {
             .csv(outputPath)
   }
   
+  def writeParquet(df:DataFrame, outputPath: String) =  {
+    df.write.option("compression", "gzip").parquet(outputPath)
+  }
+  
   
   def main(args: Array[String]) {
     val conf = new Conf(args) // TODO detect type from CREATE TABLE statement
     println("Reading %s".format(conf.dumpFilePath()))
     val dumpType = conf.dumpType()
+    val outputFormat = conf.outputFormat()
     val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
     val session = SparkSession.builder.config(sconf).getOrCreate()
     val sctx = session.sparkContext
@@ -56,7 +61,11 @@ object DumpParser {
     }
     
     val df = parser.getDataFrame(session, records)
-    writeCsv(df, conf.outputPath())
+    outputFormat match {
+      case "parquet" => writeParquet(df, conf.outputPath())
+      case _ => writeCsv(df, conf.outputPath())
+    }
+    
     
     
   }
