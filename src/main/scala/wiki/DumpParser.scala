@@ -34,6 +34,7 @@ object DumpParser {
     df.write.option("delimiter", "\t")
             .option("header", false)
             .option("quote", "")
+            .option("compression", "gzip")
             .csv(outputPath)
   }
   
