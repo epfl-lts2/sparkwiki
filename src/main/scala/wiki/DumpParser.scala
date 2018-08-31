@@ -1,7 +1,6 @@
 package wiki
 import java.io.File
 
-import com.opencsv.CSVParser
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.rdd.RDD
