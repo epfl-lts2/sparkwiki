@@ -57,6 +57,8 @@ object DumpParser {
       case "page" => new WikipediaPageParser
       case "pagelinks" => new WikipediaPageLinkParser
       case "redirect" => new WikipediaRedirectParser
+      case "category" => new WikipediaCategoryParser
+      case "categorylinks" => new WikipediaCategoryLinkParser
     }
     
     val df = parser.getDataFrame(session, records)
