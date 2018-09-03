@@ -21,9 +21,9 @@ class ConfMerge(args: Seq[String]) extends ScallopConf(args) {
   val outputPath = opt[String](required=true, name="outputPath")
   // TODO improve validation
   requireOne(pageLinksPath, redirectPath, catlinksPath)
-  requireOne(pagePath, categoryPath)
+  codependent(catlinksPath, pagePath)
   codependent(categoryPath, catlinksPath)
-  conflicts(categoryPath, List(pagePath, pageLinksPath, redirectPath))
+  conflicts(categoryPath, List(pageLinksPath, redirectPath))
   verify()
 }
 
@@ -50,10 +50,12 @@ object DumpParseMerge {
             .csv(outputPath)
   }
   
-  def joinCategory(session:SparkSession, category:DataFrame, categoryLinksPath:String, outputPath:String) = {
+  def joinCategory(session:SparkSession, category:DataFrame, pages:DataFrame, categoryLinksPath:String, outputPath:String) = {
     val catlinks = session.read.parquet(categoryLinksPath)
     
-    val catlinks_id = catlinks.withColumn("title", catlinks.col("to"))
+    // join first on the page dataframe to filter out pages not existing in the dataset
+    val catlinks_pg = catlinks.withColumn("id", catlinks.col("from")).join(pages, "id")
+    val catlinks_id = catlinks_pg.withColumn("title", catlinks_pg.col("to"))
                           .join(category, "title")
                           .withColumn("page_id", catlinks.col("from"))
                           .select("page_id", "title", "id")
@@ -72,14 +74,15 @@ object DumpParseMerge {
     val session = SparkSession.builder.config(sconf).getOrCreate()
     val sctx = session.sparkContext
     
+    val pages = session.read.parquet(conf.pagePath())
     
     conf.pagePath.toOption match {
       case None => {
         val category = session.read.parquet(conf.categoryPath())
-        joinCategory(session, category, conf.catlinksPath(), conf.outputPath())
+        joinCategory(session, category, pages, conf.catlinksPath(), conf.outputPath())
       }
       case _ => {
-        val pages = session.read.parquet(conf.pagePath())
+        
         conf.pageLinksPath.toOption match {
           case None => joinRedirect(session, pages, conf.redirectPath(), conf.outputPath())
           case _ => joinPageLinks(session, pages, conf.pageLinksPath(), conf.outputPath())
