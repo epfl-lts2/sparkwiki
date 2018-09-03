@@ -23,7 +23,7 @@ case class WikipediaPageLink(from:Int, namespace:Int, title:String, fromNamespac
 
 case class WikipediaRedirect(from:Int, targetNamespace:Int, title:String, interwiki:String, fragment:String) extends WikipediaElement 
 
-case class WikipediaCategory(id:String, title:String, pages:Int, subcats:Int, files:Int) extends WikipediaElement
+case class WikipediaCategory(id:Int, title:String, pages:Int, subcats:Int, files:Int) extends WikipediaElement
 
 case class WikipediaCategoryLink(from:Int, to:String, sortKey:String, timestamp:Timestamp, 
                                   sortkeyPrefix:String, collation:String, ctype:String) extends WikipediaElement
@@ -119,7 +119,7 @@ class WikipediaCategoryParser extends Serializable with WikipediaElementParser[W
   val categoryRegex = """\((\d+),'(.*?)',(\d+),(\d+),(\d+)\)""".r
   def parseLine(lineInput: String):List[WikipediaCategory] = {
     val r = categoryRegex.findAllIn(lineInput).matchData.toList
-    r.map(m => WikipediaCategory("c" + m.group(1), m.group(2), m.group(3).toInt, m.group(4).toInt, m.group(5).toInt))
+    r.map(m => WikipediaCategory(m.group(1).toInt, m.group(2), m.group(3).toInt, m.group(4).toInt, m.group(5).toInt))
   }
   
   def filterElt(t: WikipediaCategory):Boolean = true
