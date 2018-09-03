@@ -13,11 +13,15 @@ import scala.RuntimeException
 import org.rogach.scallop._
 
 class ConfMerge(args: Seq[String]) extends ScallopConf(args) {
-  val pagePath = opt[String](required = true, name="pagePath")
+  val pagePath = opt[String](name="pagePath")
+  val categoryPath = opt[String](name="categoryPath")
   val pageLinksPath = opt[String](name="pageLinksPath")
   val redirectPath = opt[String](name="redirectPath")
-  val outputPath = opt[String](required = true, name="outputPath")
-  requireOne(pageLinksPath, redirectPath)
+  val catlinksPath = opt[String](name="categoryLinksPath")
+  val outputPath = opt[String](required=true, name="outputPath")
+  // TODO improve validation
+  requireOne(pageLinksPath, redirectPath, catlinksPath)
+  requireOne(pagePath, categoryPath)
   verify()
 }
 
@@ -44,19 +48,42 @@ object DumpParseMerge {
             .csv(outputPath)
   }
   
+  def joinCategory(session:SparkSession, category:DataFrame, categoryLinksPath:String, outputPath:String) = {
+    val catlinks = session.read.parquet(categoryLinksPath)
+    
+    val catlinks_id = catlinks.withColumn("title", catlinks.col("to"))
+                          .join(category, "title")
+                          .withColumn("page_id", catlinks.col("from"))
+                          .select("page_id", "title", "id")
+    catlinks_id.write.option("delimiter", "\t")
+           .option("header", false)
+           .option("quote", "")
+           .option("compression", "gzip")
+           .csv(outputPath)
+  }
+  
   
   def main(args: Array[String]) {
     val conf = new ConfMerge(args)
-    println("Reading %s and %s".format(conf.pagePath(), conf.pageLinksPath()))
+    
     val sconf = new SparkConf().setAppName("Wikipedia dump merge").setMaster("local[*]")
     val session = SparkSession.builder.config(sconf).getOrCreate()
     val sctx = session.sparkContext
-    val pages = session.read.parquet(conf.pagePath())
-    conf.pageLinksPath.toOption match {
-      case None => joinRedirect(session, pages, conf.redirectPath(), conf.outputPath())
-      case _ => joinPageLinks(session, pages, conf.pageLinksPath(), conf.outputPath())
-    }
     
+    
+    conf.pagePath.toOption match {
+      case None => {
+        val category = session.read.parquet(conf.categoryPath())
+        joinCategory(session, category, conf.catlinksPath(), conf.outputPath())
+      }
+      case _ => {
+        val pages = session.read.parquet(conf.pagePath())
+        conf.pageLinksPath.toOption match {
+          case None => joinRedirect(session, pages, conf.redirectPath(), conf.outputPath())
+          case _ => joinPageLinks(session, pages, conf.pageLinksPath(), conf.outputPath())
+        }
+      }
+    }    
    
   }
 }

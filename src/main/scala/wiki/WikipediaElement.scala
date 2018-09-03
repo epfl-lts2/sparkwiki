@@ -148,6 +148,6 @@ class WikipediaCategoryLinkParser extends Serializable with WikipediaElementPars
   }
   def filterElt(t: WikipediaCategoryLink):Boolean = t.ctype == "page"
   def getDataFrame(session:SparkSession, lines:RDD[String]):DataFrame = {
-    session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt))
+    session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt)).select("from", "to")
   }
 }
