@@ -54,7 +54,9 @@ object DumpParseMerge {
     val catlinks = session.read.parquet(categoryLinksPath)
     
     // join first on the page dataframe to filter out pages not existing in the dataset
-    val catlinks_pg = catlinks.withColumn("id", catlinks.col("from")).join(pages, "id")
+    val catlinks_pg = catlinks.withColumn("id", catlinks.col("from"))
+                          .join(pages, "id")
+                          .select("from", "to")
     val catlinks_id = catlinks_pg.withColumn("title", catlinks_pg.col("to"))
                           .join(category, "title")
                           .withColumn("page_id", catlinks.col("from"))
