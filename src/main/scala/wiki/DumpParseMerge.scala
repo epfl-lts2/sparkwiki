@@ -76,17 +76,16 @@ object DumpParseMerge {
     
     val pages = session.read.parquet(conf.pagePath())
     
-    conf.pagePath.toOption match {
+    conf.categoryPath.toOption match {
       case None => {
-        val category = session.read.parquet(conf.categoryPath())
-        joinCategory(session, category, pages, conf.catlinksPath(), conf.outputPath())
-      }
-      case _ => {
-        
         conf.pageLinksPath.toOption match {
           case None => joinRedirect(session, pages, conf.redirectPath(), conf.outputPath())
           case _ => joinPageLinks(session, pages, conf.pageLinksPath(), conf.outputPath())
         }
+      }
+      case _ => {
+        val category = session.read.parquet(conf.categoryPath())
+        joinCategory(session, category, pages, conf.catlinksPath(), conf.outputPath())
       }
     }    
    
