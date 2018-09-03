@@ -22,6 +22,8 @@ class ConfMerge(args: Seq[String]) extends ScallopConf(args) {
   // TODO improve validation
   requireOne(pageLinksPath, redirectPath, catlinksPath)
   requireOne(pagePath, categoryPath)
+  codependent(categoryPath, catlinksPath)
+  conflicts(categoryPath, List(pagePath, pageLinksPath, redirectPath))
   verify()
 }
 
