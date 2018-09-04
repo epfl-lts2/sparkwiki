@@ -1,12 +1,11 @@
 package wiki
-import java.io.File
+import java.nio.file.Paths
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.{SparkConf, SparkContext}
-
 import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession}
 
 import scala.RuntimeException
@@ -19,7 +18,7 @@ class MergeConf(args: Seq[String]) extends ScallopConf(args) {
   val redirectPath = opt[String](name="redirectPath")
   val catlinksPath = opt[String](name="categoryLinksPath")
   val outputPath = opt[String](required=true, name="outputPath")
-  // TODO improve validation
+  
   requireOne(pageLinksPath, redirectPath, catlinksPath)
   codependent(catlinksPath, pagePath)
   codependent(categoryPath, catlinksPath)
@@ -28,15 +27,26 @@ class MergeConf(args: Seq[String]) extends ScallopConf(args) {
 }
 
 object DumpParseMerge {
-  def joinPageLinks(session:SparkSession, pages:DataFrame, pageLinkPath:String, outputPath:String) = {
-    val pagelinks = session.read.parquet(pageLinkPath)
-    val pagelinks_id = pagelinks.join(pages, "title").select("from", "id", "title")
-    
-    pagelinks_id.write.option("delimiter", "\t")
+  def writeCsv(df:DataFrame, outputPath:String) = {
+    df.write.option("delimiter", "\t")
             .option("header", false)
             .option("quote", "")
             .option("compression", "gzip")
             .csv(outputPath)
+  }
+  
+  
+  def joinPageLinks(session:SparkSession, pages:DataFrame, pageLinkPath:String, outputPath:String) = {
+    import session.implicits._
+    val normal_pages = pages.filter($"namespace" === 0)
+    val cat_pages = pages.filter($"namespace" === 14)
+    
+    val pagelinks = session.read.parquet(pageLinkPath)
+    
+    // create normal page links (relation LINKS_TO)
+    val normal_links = pagelinks.filter($"fromNamespace" === 0 && $"namespace" === 0).join(normal_pages, "title")
+    writeCsv(normal_links, Paths.get(outputPath, "normal_links").toString)
+
   }
   
   def joinRedirect(session:SparkSession, pages:DataFrame, redirectPath:String, outputPath:String) = {
