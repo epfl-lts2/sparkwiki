@@ -4,7 +4,6 @@ import java.sql.Timestamp
 import java.util.Date
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import scala.reflect.ClassTag
 
 abstract class WikipediaElement extends Serializable
 
@@ -60,7 +59,7 @@ class WikipediaPageParser extends Serializable with WikipediaElementParser[Wikip
   }
     
   
-  def filterElt(t: WikipediaPage):Boolean = t.namespace == 0 && t.id > 0
+  def filterElt(t: WikipediaPage):Boolean = (t.namespace == 0 || t.namespace == 14) && t.id > 0
   def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
     session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt)).select("id", "namespace", "title", "isRedirect", "isNew")
   }
@@ -81,7 +80,7 @@ class WikipediaPageLinkParser extends Serializable with WikipediaElementParser[W
   }
   
   
-  def filterElt(t:WikipediaPageLink): Boolean = t.namespace == 0 && t.fromNamespace == 0
+  def filterElt(t:WikipediaPageLink): Boolean = (t.namespace == 0 || t.namespace == 14) && (t.fromNamespace == 0 || t.fromNamespace == 14)
   def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
     session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt))
   }
@@ -103,7 +102,7 @@ class WikipediaRedirectParser extends Serializable with WikipediaElementParser[W
   }
   
   
-  def filterElt(t: WikipediaRedirect):Boolean = t.targetNamespace == 0
+  def filterElt(t: WikipediaRedirect):Boolean = t.targetNamespace == 0 || t.targetNamespace == 14
   def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
     session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt))
   }
