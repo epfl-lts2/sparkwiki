@@ -12,7 +12,7 @@ import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession}
 import scala.RuntimeException
 import org.rogach.scallop._
 
-class Conf(args: Seq[String]) extends ScallopConf(args) {
+class ParserConf(args: Seq[String]) extends ScallopConf(args) {
   val dumpFilePath = opt[String](required = true, name= "dumpFilePath")
   val dumpType = opt[String](required = true, name="dumpType")
   val outputPath = opt[String](required = true, name="outputPath")
@@ -40,7 +40,7 @@ object DumpParser {
   
   
   def main(args: Array[String]) {
-    val conf = new Conf(args) // TODO detect type from CREATE TABLE statement
+    val conf = new ParserConf(args) // TODO detect type from CREATE TABLE statement
     println("Reading %s".format(conf.dumpFilePath()))
     val dumpType = conf.dumpType()
     val outputFormat = conf.outputFormat()

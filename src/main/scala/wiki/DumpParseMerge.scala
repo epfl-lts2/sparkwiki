@@ -12,7 +12,7 @@ import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession}
 import scala.RuntimeException
 import org.rogach.scallop._
 
-class ConfMerge(args: Seq[String]) extends ScallopConf(args) {
+class MergeConf(args: Seq[String]) extends ScallopConf(args) {
   val pagePath = opt[String](name="pagePath")
   val categoryPath = opt[String](name="categoryPath")
   val pageLinksPath = opt[String](name="pageLinksPath")
@@ -70,7 +70,7 @@ object DumpParseMerge {
   
   
   def main(args: Array[String]) {
-    val conf = new ConfMerge(args)
+    val conf = new MergeConf(args)
     
     val sconf = new SparkConf().setAppName("Wikipedia dump merge").setMaster("local[*]")
     val session = SparkSession.builder.config(sconf).getOrCreate()
