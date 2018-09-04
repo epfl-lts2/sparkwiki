@@ -20,7 +20,7 @@ class ParserConf(args: Seq[String]) extends ScallopConf(args) {
   verify()
 }
 
-object DumpParser {
+class DumpParser {
   
   def splitSqlInsertLine(line: String):String = {
     line.split(" VALUES ")(1).trim
@@ -39,17 +39,8 @@ object DumpParser {
   }
   
   
-  def main(args: Array[String]) {
-    val conf = new ParserConf(args) // TODO detect type from CREATE TABLE statement
-    println("Reading %s".format(conf.dumpFilePath()))
-    val dumpType = conf.dumpType()
-    val outputFormat = conf.outputFormat()
-    val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
-    val session = SparkSession.builder.config(sconf).getOrCreate()
-    val sctx = session.sparkContext
-    
-    
-    val lines = sctx.textFile(conf.dumpFilePath(), 4)
+  def process(session: SparkSession, inputFilename:String, dumpType:String, outputPath:String, outputFormat:String) = {
+    val lines = session.sparkContext.textFile(inputFilename, 4)
     
     val sqlLines = lines.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(dumpType)))
     val records = sqlLines.map(l => splitSqlInsertLine(l))
@@ -63,12 +54,21 @@ object DumpParser {
     
     val df = parser.getDataFrame(session, records)
     outputFormat match {
-      case "parquet" => writeParquet(df, conf.outputPath())
-      case _ => writeCsv(df, conf.outputPath())
+      case "parquet" => writeParquet(df, outputPath)
+      case _ => writeCsv(df, outputPath)
     }
+
+  }
+  
+  def main(args: Array[String]) {
+    val conf = new ParserConf(args) // TODO detect type from CREATE TABLE statement
+    println("Reading %s".format(conf.dumpFilePath()))
+    val dumpType = conf.dumpType()
+    val outputFormat = conf.outputFormat()
+    val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
+    val session = SparkSession.builder.config(sconf).getOrCreate()
     
-    
-    
+    process(session, conf.dumpFilePath(), conf.dumpType(), conf.outputPath(), conf.outputFormat())
   }
 
 }
