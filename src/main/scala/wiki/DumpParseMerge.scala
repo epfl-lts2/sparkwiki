@@ -12,17 +12,13 @@ import scala.RuntimeException
 import org.rogach.scallop._
 
 class MergeConf(args: Seq[String]) extends ScallopConf(args) {
-  val pagePath = opt[String](name="pagePath")
-  val categoryPath = opt[String](name="categoryPath")
+  val pagePath = opt[String](name="pagePath", required=true)
   val pageLinksPath = opt[String](name="pageLinksPath")
   val redirectPath = opt[String](name="redirectPath")
   val catlinksPath = opt[String](name="categoryLinksPath")
   val outputPath = opt[String](required=true, name="outputPath")
   
   requireOne(pageLinksPath, redirectPath, catlinksPath)
-  //codependent(catlinksPath, pagePath)
-  codependent(categoryPath, catlinksPath)
-  conflicts(categoryPath, List(pageLinksPath, redirectPath))
   verify()
 }
 
@@ -72,17 +68,15 @@ object DumpParseMerge {
     writeCsv(redirect_id, outputPath)
   }
   
-  def joinCategory(session:SparkSession, category:DataFrame, pages:DataFrame, categoryLinksPath:String, outputPath:String) = {
+  def joinCategory(session:SparkSession, pages:DataFrame, categoryLinksPath:String, outputPath:String) = {
+    import session.implicits._
     val catlinks = session.read.parquet(categoryLinksPath)
+    val cat_pages = pages.filter($"namespace" === 14).select("id", "title")
     
-    // join first on the page dataframe to filter out pages not existing in the dataset
-    val catlinks_pg = catlinks.withColumn("id", catlinks.col("from"))
-                          .join(pages, "id")
-                          .select("from", "to")
-    val catlinks_id = catlinks_pg.withColumn("title", catlinks_pg.col("to"))
-                          .join(category, "title")
-                          .withColumn("page_id", catlinks.col("from"))
-                          .select("page_id", "title", "id")
+    // this will only show categories having a matching page (in namespace 14)
+    val catlinks_id = catlinks.withColumn("title", catlinks.col("to"))
+                          .join(pages, "title")
+                          .select("from", "title", "id", "ctype")
     writeCsv(catlinks_id, outputPath)
   }
   
@@ -96,7 +90,7 @@ object DumpParseMerge {
     
     val pages = session.read.parquet(conf.pagePath())
     
-    conf.categoryPath.toOption match {
+    conf.catlinksPath.toOption match {
       case None => {
         conf.pageLinksPath.toOption match {
           case None => joinRedirect(session, pages, conf.redirectPath(), conf.outputPath())
@@ -104,8 +98,7 @@ object DumpParseMerge {
         }
       }
       case _ => {
-        val category = session.read.parquet(conf.categoryPath())
-        joinCategory(session, category, pages, conf.catlinksPath(), conf.outputPath())
+        joinCategory(session, pages, conf.catlinksPath(), conf.outputPath())
       }
     }    
    
