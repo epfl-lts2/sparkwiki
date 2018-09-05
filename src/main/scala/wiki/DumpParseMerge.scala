@@ -63,7 +63,8 @@ object DumpParseMerge {
   
   def joinRedirect(session:SparkSession, pages:DataFrame, redirectPath:String, outputPath:String) = {
     val redirect = session.read.parquet(redirectPath)
-    val redirect_id = redirect.join(pages, "title").select("from", "id", "title")
+    val redirect_id = redirect.withColumn("namespace", redirect.col("targetNamespace"))
+                              .join(pages, Seq("title", "namespace")).select("from", "id", "title")
     
     writeCsv(redirect_id, outputPath)
   }
