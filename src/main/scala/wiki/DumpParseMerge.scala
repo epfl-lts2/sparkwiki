@@ -62,7 +62,7 @@ object DumpParseMerge {
     val cat_pages = pages.filter($"namespace" === 14).select("id", "title")
     val catlinks_pg = catlinks.withColumn("id", catlinks.col("from"))
                               .join(pages, "id")
-                              .select("from", "to")
+                              .select("from", "to", "ctype")
     
     // this will only show categories having a matching page (in namespace 14)
     val catlinks_id = catlinks_pg.withColumn("title", catlinks.col("to"))
