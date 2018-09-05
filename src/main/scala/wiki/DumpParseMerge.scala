@@ -20,7 +20,7 @@ class MergeConf(args: Seq[String]) extends ScallopConf(args) {
   val outputPath = opt[String](required=true, name="outputPath")
   
   requireOne(pageLinksPath, redirectPath, catlinksPath)
-  codependent(catlinksPath, pagePath)
+  //codependent(catlinksPath, pagePath)
   codependent(categoryPath, catlinksPath)
   conflicts(categoryPath, List(pageLinksPath, redirectPath))
   verify()
@@ -38,26 +38,38 @@ object DumpParseMerge {
   
   def joinPageLinks(session:SparkSession, pages:DataFrame, pageLinkPath:String, outputPath:String) = {
     import session.implicits._
-    val normal_pages = pages.filter($"namespace" === 0)
-    val cat_pages = pages.filter($"namespace" === 14)
+    val normal_pages = pages.filter($"namespace" === 0).select("id", "title")
+    val cat_pages = pages.filter($"namespace" === 14).select("id", "title")
     
     val pagelinks = session.read.parquet(pageLinkPath)
     
     // create normal page links (relation LINKS_TO)
-    val normal_links = pagelinks.filter($"fromNamespace" === 0 && $"namespace" === 0).join(normal_pages, "title")
+    val normal_links = pagelinks.filter($"fromNamespace" === 0 && $"namespace" === 0)
+                                .join(normal_pages, "title")
+                                .select("from", "id", "title", "fromNamespace", "namespace")
     writeCsv(normal_links, Paths.get(outputPath, "normal_links").toString)
 
+    val cat_links = pagelinks.filter($"fromNamespace" === 14 && $"namespace" === 14)
+                             .join(cat_pages, "title")
+                             .select("from", "id", "title", "fromNamespace", "namespace")
+    writeCsv(cat_links, Paths.get(outputPath, "cat_links").toString)
+    
+    val n2c_links = pagelinks.filter($"fromNamespace" === 0 && $"namespace" === 14)
+                             .join(cat_pages, "title")
+                             .select("from", "id", "title", "fromNamespace", "namespace")
+    writeCsv(n2c_links, Paths.get(outputPath, "n2c_links").toString)
+    
+    val c2n_links = pagelinks.filter($"fromNamespace" === 14 && $"namespace" === 0)
+                             .join(normal_pages, "title")
+                             .select("from", "id", "title", "fromNamespace", "namespace")
+    writeCsv(c2n_links, Paths.get(outputPath, "c2n_links").toString)
   }
   
   def joinRedirect(session:SparkSession, pages:DataFrame, redirectPath:String, outputPath:String) = {
     val redirect = session.read.parquet(redirectPath)
     val redirect_id = redirect.join(pages, "title").select("from", "id", "title")
     
-    redirect_id.write.option("delimiter", "\t")
-            .option("header", false)
-            .option("quote", "")
-            .option("compression", "gzip")
-            .csv(outputPath)
+    writeCsv(redirect_id, outputPath)
   }
   
   def joinCategory(session:SparkSession, category:DataFrame, pages:DataFrame, categoryLinksPath:String, outputPath:String) = {
@@ -71,11 +83,7 @@ object DumpParseMerge {
                           .join(category, "title")
                           .withColumn("page_id", catlinks.col("from"))
                           .select("page_id", "title", "id")
-    catlinks_id.write.option("delimiter", "\t")
-           .option("header", false)
-           .option("quote", "")
-           .option("compression", "gzip")
-           .csv(outputPath)
+    writeCsv(catlinks_id, outputPath)
   }
   
   
