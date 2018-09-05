@@ -18,7 +18,7 @@ class MergeConf(args: Seq[String]) extends ScallopConf(args) {
   val catlinksPath = opt[String](name="categoryLinksPath")
   val outputPath = opt[String](required=true, name="outputPath")
   
-  requireOne(pageLinksPath, redirectPath, catlinksPath)
+  mutuallyExclusive(pageLinksPath, redirectPath, catlinksPath)
   verify()
 }
 
@@ -31,7 +31,14 @@ object DumpParseMerge {
             .csv(outputPath)
   }
   
-  
+  def splitPages(session:SparkSession, pages:DataFrame, outputPath:String) = {
+    import session.implicits._
+    val normal_pages = pages.filter($"namespace" === 0).select("id", "title", "isRedirect", "isNew")
+    val cat_pages = pages.filter($"namespace" === 14).select("id", "title", "isRedirect", "isNew")
+    writeCsv(normal_pages, Paths.get(outputPath, "normal_pages").toString)
+    writeCsv(cat_pages, Paths.get(outputPath, "category_pages").toString)
+    
+  }
   def joinPageLinks(session:SparkSession, pages:DataFrame, pageLinkPath:String, outputPath:String) = {
     import session.implicits._
     val normal_pages = pages.filter($"namespace" === 0).select("id", "title")
@@ -91,17 +98,22 @@ object DumpParseMerge {
     
     val pages = session.read.parquet(conf.pagePath())
     
-    conf.catlinksPath.toOption match {
-      case None => {
-        conf.pageLinksPath.toOption match {
-          case None => joinRedirect(session, pages, conf.redirectPath(), conf.outputPath())
-          case _ => joinPageLinks(session, pages, conf.pageLinksPath(), conf.outputPath())
+    if (conf.pageLinksPath.isEmpty && conf.catlinksPath.isEmpty && conf.redirectPath.isEmpty) {
+        splitPages(session, pages, conf.outputPath())
+    } else {
+    
+      conf.catlinksPath.toOption match {
+        case None => {
+          conf.pageLinksPath.toOption match {
+            case None => joinRedirect(session, pages, conf.redirectPath(), conf.outputPath())
+            case _ => joinPageLinks(session, pages, conf.pageLinksPath(), conf.outputPath())
+          }
         }
-      }
-      case _ => {
-        joinCategory(session, pages, conf.catlinksPath(), conf.outputPath())
-      }
-    }    
+        case _ => {
+          joinCategory(session, pages, conf.catlinksPath(), conf.outputPath())
+        }
+      }    
+    }
    
   }
 }
