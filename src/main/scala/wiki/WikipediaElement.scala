@@ -21,7 +21,7 @@ trait WikipediaElementParser[T <: WikipediaElement with Product] {
 
 case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String, counter:Int, 
                           isRedirect:Boolean, isNew:Boolean, random:Double, touched:Timestamp, linksUpdated:String,
-                          latest:Int, len:Int, contentModel:String, lang:String, isCategory:Boolean) extends WikipediaElement 
+                          latest:Int, len:Int, contentModel:String, lang:String) extends WikipediaElement 
                           
 case class WikipediaPageLink(from:Int, namespace:Int, title:String, fromNamespace:Int) extends WikipediaElement 
 
@@ -59,7 +59,7 @@ class WikipediaPageParser extends Serializable with WikipediaElementParser[Wikip
     r.map(m =>  WikipediaPage(m.group(1).toInt, m.group(2).toInt, m.group(3), m.group(4), m.group(5).toInt,
                         m.group(6).toInt == 1, m.group(7).toInt == 1, m.group(8).toDouble, 
                         new Timestamp(timestampFormat.parse(m.group(9)).getTime), m.group(10), m.group(11).toInt, 
-                        m.group(12).toInt, m.group(13), m.group(14), m.group(2).toInt == CATEGORY_NAMESPACE))
+                        m.group(12).toInt, m.group(13), m.group(14)))
       
   }
     
@@ -67,7 +67,7 @@ class WikipediaPageParser extends Serializable with WikipediaElementParser[Wikip
   def filterElt(t: WikipediaPage):Boolean = (t.namespace == PAGE_NAMESPACE || t.namespace == CATEGORY_NAMESPACE)
   def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
     session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt))
-              .select("id", "namespace", "title", "isRedirect", "isNew", "isCategory")
+              .select("id", "namespace", "title", "isRedirect", "isNew")
   }
 }
 
