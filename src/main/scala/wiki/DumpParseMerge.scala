@@ -1,71 +1,81 @@
 package wiki
-import java.io.File
+import java.nio.file.Paths
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.{SparkConf, SparkContext}
-
 import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession}
 
 import scala.RuntimeException
 import org.rogach.scallop._
 
 class MergeConf(args: Seq[String]) extends ScallopConf(args) {
-  val pagePath = opt[String](name="pagePath")
-  val categoryPath = opt[String](name="categoryPath")
+  val pagePath = opt[String](name="pagePath", required=true)
   val pageLinksPath = opt[String](name="pageLinksPath")
   val redirectPath = opt[String](name="redirectPath")
   val catlinksPath = opt[String](name="categoryLinksPath")
   val outputPath = opt[String](required=true, name="outputPath")
-  // TODO improve validation
-  requireOne(pageLinksPath, redirectPath, catlinksPath)
-  codependent(catlinksPath, pagePath)
-  codependent(categoryPath, catlinksPath)
-  conflicts(categoryPath, List(pageLinksPath, redirectPath))
+  
+  mutuallyExclusive(pageLinksPath, redirectPath, catlinksPath)
   verify()
 }
 
 object DumpParseMerge {
-  def joinPageLinks(session:SparkSession, pages:DataFrame, pageLinkPath:String, outputPath:String) = {
-    val pagelinks = session.read.parquet(pageLinkPath)
-    val pagelinks_id = pagelinks.join(pages, "title").select("from", "id", "title")
-    
-    pagelinks_id.write.option("delimiter", "\t")
+  val PAGE_NAMESPACE = 0
+  val CATEGORY_NAMESPACE = 14
+  
+  def writeCsv(df:DataFrame, outputPath:String) = {
+    df.write.option("delimiter", "\t")
             .option("header", false)
             .option("quote", "")
             .option("compression", "gzip")
             .csv(outputPath)
   }
+  
+  def splitPages(session:SparkSession, pages:DataFrame, outputPath:String) = {
+    import session.implicits._
+    val normal_pages = pages.filter($"namespace" === PAGE_NAMESPACE).select("id", "title", "isRedirect", "isNew")
+    val cat_pages = pages.filter($"namespace" === CATEGORY_NAMESPACE).select("id", "title", "isRedirect", "isNew")
+    writeCsv(normal_pages, Paths.get(outputPath, "normal_pages").toString)
+    writeCsv(cat_pages, Paths.get(outputPath, "category_pages").toString)
+    
+  }
+  def joinPageLinks(session:SparkSession, pages:DataFrame, pageLinkPath:String, outputPath:String) = {
+    import session.implicits._
+   
+    val pagelinks = session.read.parquet(pageLinkPath)
+    val pagelinks_id = pagelinks.join(pages, Seq("title", "namespace"))
+                                .select("from", "id", "title", "fromNamespace", "namespace")
+    writeCsv(pagelinks_id, outputPath)                            
+   }
   
   def joinRedirect(session:SparkSession, pages:DataFrame, redirectPath:String, outputPath:String) = {
     val redirect = session.read.parquet(redirectPath)
-    val redirect_id = redirect.join(pages, "title").select("from", "id", "title")
+    val redirect_pg = redirect.withColumn("id", redirect.col("from"))
+                              .join(pages.drop(pages.col("title")), "id")
+                              .select("from", "targetNamespace", "title")
     
-    redirect_id.write.option("delimiter", "\t")
-            .option("header", false)
-            .option("quote", "")
-            .option("compression", "gzip")
-            .csv(outputPath)
+    val redirect_id = redirect_pg.withColumn("namespace", redirect.col("targetNamespace"))
+                              .join(pages, Seq("title", "namespace")).select("from", "id", "title")
+    
+    writeCsv(redirect_id, outputPath)
   }
   
-  def joinCategory(session:SparkSession, category:DataFrame, pages:DataFrame, categoryLinksPath:String, outputPath:String) = {
+  def joinCategory(session:SparkSession, pages:DataFrame, categoryLinksPath:String, outputPath:String) = {
+    import session.implicits._
     val catlinks = session.read.parquet(categoryLinksPath)
-    
-    // join first on the page dataframe to filter out pages not existing in the dataset
+    val cat_pages = pages.filter($"namespace" === CATEGORY_NAMESPACE).select("id", "title")
     val catlinks_pg = catlinks.withColumn("id", catlinks.col("from"))
-                          .join(pages, "id")
-                          .select("from", "to")
-    val catlinks_id = catlinks_pg.withColumn("title", catlinks_pg.col("to"))
-                          .join(category, "title")
-                          .withColumn("page_id", catlinks.col("from"))
-                          .select("page_id", "title", "id")
-    catlinks_id.write.option("delimiter", "\t")
-           .option("header", false)
-           .option("quote", "")
-           .option("compression", "gzip")
-           .csv(outputPath)
+                              .join(pages, "id")
+                              .select("from", "to", "ctype")
+    
+    // this will only show categories having a matching page (in namespace 14)
+    val catlinks_id = catlinks_pg.withColumn("title", catlinks.col("to"))
+                          .join(cat_pages, "title")
+                          .select("from", "title", "id", "ctype")
+    writeCsv(catlinks_id, outputPath)
   }
   
   
@@ -78,18 +88,10 @@ object DumpParseMerge {
     
     val pages = session.read.parquet(conf.pagePath())
     
-    conf.categoryPath.toOption match {
-      case None => {
-        conf.pageLinksPath.toOption match {
-          case None => joinRedirect(session, pages, conf.redirectPath(), conf.outputPath())
-          case _ => joinPageLinks(session, pages, conf.pageLinksPath(), conf.outputPath())
-        }
-      }
-      case _ => {
-        val category = session.read.parquet(conf.categoryPath())
-        joinCategory(session, category, pages, conf.catlinksPath(), conf.outputPath())
-      }
-    }    
-   
+    if (!conf.pageLinksPath.isEmpty) joinPageLinks(session, pages, conf.pageLinksPath(), conf.outputPath())
+    else if (!conf.catlinksPath.isEmpty) joinCategory(session, pages, conf.catlinksPath(), conf.outputPath())
+    else if (!conf.redirectPath.isEmpty) joinRedirect(session, pages, conf.redirectPath(), conf.outputPath())
+    else splitPages(session, pages, conf.outputPath())
+      
   }
 }
