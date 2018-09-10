@@ -1,4 +1,4 @@
-package wiki
+package ch.epfl.lts2.wiki
 import java.io.File
 
 import org.apache.hadoop.conf.Configuration
@@ -38,21 +38,23 @@ class DumpParser {
     df.write.option("compression", "gzip").parquet(outputPath)
   }
   
-  
-  def process(session: SparkSession, inputFilename:String, dumpType:String, outputPath:String, outputFormat:String) = {
+  def processToDf(session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value):DataFrame = {
     val lines = session.sparkContext.textFile(inputFilename, 4)
     
     val sqlLines = lines.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(dumpType)))
     val records = sqlLines.map(l => splitSqlInsertLine(l))
     val parser = dumpType match {
-      case "page" => new WikipediaPageParser
-      case "pagelinks" => new WikipediaPageLinkParser
-      case "redirect" => new WikipediaRedirectParser
-      case "category" => new WikipediaCategoryParser
-      case "categorylinks" => new WikipediaCategoryLinkParser
+      case WikipediaDumpType.Page => new WikipediaPageParser
+      case WikipediaDumpType.PageLinks => new WikipediaPageLinkParser
+      case WikipediaDumpType.Redirect => new WikipediaRedirectParser
+      case WikipediaDumpType.Category => new WikipediaCategoryParser
+      case WikipediaDumpType.CategoryLinks => new WikipediaCategoryLinkParser
     }
     
-    val df = parser.getDataFrame(session, records)
+    parser.getDataFrame(session, records)
+  }
+  def process(session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value, outputPath:String, outputFormat:String) = {
+    val df = processToDf(session, inputFilename, dumpType)
     outputFormat match {
       case "parquet" => writeParquet(df, outputPath)
       case _ => writeCsv(df, outputPath)
@@ -67,8 +69,14 @@ class DumpParser {
     val outputFormat = conf.outputFormat()
     val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
     val session = SparkSession.builder.config(sconf).getOrCreate()
-    
-    process(session, conf.dumpFilePath(), conf.dumpType(), conf.outputPath(), conf.outputFormat())
+    val dumpEltType = dumpType match {
+      case "page" => WikipediaDumpType.Page
+      case "pagelinks" => WikipediaDumpType.PageLinks
+      case "redirect" => WikipediaDumpType.Redirect
+      case "category" => WikipediaDumpType.Category
+      case "categorylinks" => WikipediaDumpType.CategoryLinks
+    }
+    process(session, conf.dumpFilePath(), dumpEltType, conf.outputPath(), conf.outputFormat())
   }
 
 }

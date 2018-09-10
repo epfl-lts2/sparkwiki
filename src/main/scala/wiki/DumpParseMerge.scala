@@ -1,4 +1,4 @@
-package wiki
+package ch.epfl.lts2.wiki
 import java.nio.file.Paths
 
 import org.apache.hadoop.conf.Configuration
@@ -42,6 +42,7 @@ object DumpParseMerge {
     writeCsv(cat_pages, Paths.get(outputPath, "category_pages").toString)
     
   }
+  
   def joinPageLinks(session:SparkSession, pages:DataFrame, pageLinkPath:String, outputPath:String) = {
     import session.implicits._
    
@@ -49,7 +50,7 @@ object DumpParseMerge {
     val pagelinks_id = pagelinks.join(pages, Seq("title", "namespace"))
                                 .select("from", "id", "title", "fromNamespace", "namespace")
     writeCsv(pagelinks_id, outputPath)                            
-   }
+  }
   
   def joinRedirect(session:SparkSession, pages:DataFrame, redirectPath:String, outputPath:String) = {
     val redirect = session.read.parquet(redirectPath)
