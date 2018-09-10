@@ -26,20 +26,20 @@ object DumpProcessor  {
     val sconf = new SparkConf().setAppName("Wikipedia dump processor").setMaster("local[*]")
     val session = SparkSession.builder.config(sconf).getOrCreate()
     
-    val pageFile = conf.namePrefix() + "-page.sql.bz2"
+    val pageFile = Paths.get(conf.dumpPath(), conf.namePrefix() + "-page.sql.bz2").toString
     val pageOutput = Paths.get(conf.outputPath(), "page")
     val pageDf = dumpParser.processToDf(session, pageFile, WikipediaDumpType.Page)
     
     
-    val pageLinksFile = conf.namePrefix() + "-pagelinks.sql.bz2"
+    val pageLinksFile = Paths.get(conf.dumpPath(), conf.namePrefix() + "-pagelinks.sql.bz2").toString
     val pageLinksOutput = Paths.get(conf.outputPath(), "pagelinks").toString
     val pageLinksDf = dumpParser.processToDf(session, pageLinksFile, WikipediaDumpType.PageLinks)
     
-    val categoryLinksFile = conf.namePrefix() + "-categorylinks.sql.bz2"
+    val categoryLinksFile = Paths.get(conf.dumpPath(), conf.namePrefix() + "-categorylinks.sql.bz2").toString
     val categoryLinksOutput = Paths.get(conf.outputPath(), "categorylinks").toString
     val categoryLinksDf = dumpParser.processToDf(session, categoryLinksFile, WikipediaDumpType.CategoryLinks)
     
-    val redirectFile = conf.namePrefix() + "-redirect.sql.bz2"
+    val redirectFile = Paths.get(conf.dumpPath(), conf.namePrefix() + "-redirect.sql.bz2").toString
     val redirectOutput = Paths.get(conf.outputPath(), "redirect").toString
     val redirectDf = dumpParser.processToDf(session, redirectFile, WikipediaDumpType.Redirect)
     
