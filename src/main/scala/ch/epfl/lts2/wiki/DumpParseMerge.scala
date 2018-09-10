@@ -23,9 +23,7 @@ class MergeConf(args: Seq[String]) extends ScallopConf(args) {
 }
 
 object DumpParseMerge {
-  val PAGE_NAMESPACE = 0
-  val CATEGORY_NAMESPACE = 14
-  
+ 
   def writeCsv(df:DataFrame, outputPath:String) = {
     df.write.option("delimiter", "\t")
             .option("header", false)
@@ -36,8 +34,8 @@ object DumpParseMerge {
   
   def splitPages(session:SparkSession, pages:DataFrame, outputPath:String) = {
     import session.implicits._
-    val normal_pages = pages.filter($"namespace" === PAGE_NAMESPACE).select("id", "title", "isRedirect", "isNew")
-    val cat_pages = pages.filter($"namespace" === CATEGORY_NAMESPACE).select("id", "title", "isRedirect", "isNew")
+    val normal_pages = pages.filter($"namespace" === WikipediaNamespace.Page).select("id", "title", "isRedirect", "isNew")
+    val cat_pages = pages.filter($"namespace" === WikipediaNamespace.Category).select("id", "title", "isRedirect", "isNew")
     writeCsv(normal_pages, Paths.get(outputPath, "normal_pages").toString)
     writeCsv(cat_pages, Paths.get(outputPath, "category_pages").toString)
     
@@ -67,7 +65,7 @@ object DumpParseMerge {
   def joinCategory(session:SparkSession, pages:DataFrame, categoryLinksPath:String, outputPath:String) = {
     import session.implicits._
     val catlinks = session.read.parquet(categoryLinksPath)
-    val cat_pages = pages.filter($"namespace" === CATEGORY_NAMESPACE).select("id", "title")
+    val cat_pages = pages.filter($"namespace" === WikipediaNamespace.Category).select("id", "title")
     val catlinks_pg = catlinks.withColumn("id", catlinks.col("from"))
                               .join(pages, "id")
                               .select("from", "to", "ctype")

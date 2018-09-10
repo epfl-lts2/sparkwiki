@@ -67,9 +67,9 @@ object DumpProcessor  {
     
     writeCsv(normal_pages, pageOutput.resolve("normal_pages").toString)
     writeCsv(cat_pages, pageOutput.resolve("category_pages").toString)
-    //writeCsv(pagelinks_id, pageLinksOutput)
-    //writeCsv(redirect_id, redirectOutput)
-    //writeCsv(catlinks_id, categoryLinksOutput)
+    writeCsv(pagelinks_id, pageLinksOutput)
+    writeCsv(redirect_id, redirectOutput)
+    writeCsv(catlinks_id, categoryLinksOutput)
     
   }
 }

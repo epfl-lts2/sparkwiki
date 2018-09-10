@@ -62,28 +62,29 @@ class DumpParser extends Serializable  {
 
   }
 }
+
 object DumpParser 
 {
   val dumpParser = new DumpParser
   // main 
   def main(args:Array[String]) = 
   {
-  val conf = new ParserConf(args) // TODO detect type from CREATE TABLE statement
-  println("Reading %s".format(conf.dumpFilePath()))
-  val dumpType = conf.dumpType()
-  val outputFormat = conf.outputFormat()
-  val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
-  val session = SparkSession.builder.config(sconf).getOrCreate()
-  assert(WikipediaNamespace.Page == 0)
-  assert(WikipediaNamespace.Category == 14)
-  val dumpEltType = dumpType match {
-    case "page" => WikipediaDumpType.Page
-    case "pagelinks" => WikipediaDumpType.PageLinks
-    case "redirect" => WikipediaDumpType.Redirect
-    case "category" => WikipediaDumpType.Category
-    case "categorylinks" => WikipediaDumpType.CategoryLinks
-  }
-  dumpParser.process(session, conf.dumpFilePath(), dumpEltType, conf.outputPath(), conf.outputFormat())
+    val conf = new ParserConf(args) // TODO detect type from CREATE TABLE statement
+    println("Reading %s".format(conf.dumpFilePath()))
+    val dumpType = conf.dumpType()
+    val outputFormat = conf.outputFormat()
+    val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
+    val session = SparkSession.builder.config(sconf).getOrCreate()
+    assert(WikipediaNamespace.Page == 0)
+    assert(WikipediaNamespace.Category == 14)
+    val dumpEltType = dumpType match {
+      case "page" => WikipediaDumpType.Page
+      case "pagelinks" => WikipediaDumpType.PageLinks
+      case "redirect" => WikipediaDumpType.Redirect
+      case "category" => WikipediaDumpType.Category
+      case "categorylinks" => WikipediaDumpType.CategoryLinks
+    }
+    dumpParser.process(session, conf.dumpFilePath(), dumpEltType, conf.outputPath(), conf.outputFormat())
 
   }
 }

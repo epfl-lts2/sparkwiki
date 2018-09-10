@@ -6,7 +6,12 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 
 object WikipediaDumpType extends Enumeration {
-  val Page, PageLinks, Redirect, Category, CategoryLinks = Value
+  // values must match the table name !
+  val Page = Value("page")
+  val PageLinks = Value("pagelinks")
+  val Redirect = Value("redirect")
+  val Category = Value("category")
+  val CategoryLinks = Value("categorylinks")
 }
 
 object WikipediaNamespace extends Enumeration {
