@@ -20,7 +20,7 @@ class ParserConf(args: Seq[String]) extends ScallopConf(args) {
   verify()
 }
 
-class DumpParser {
+class DumpParser extends App  {
   
   def splitSqlInsertLine(line: String):String = {
     line.split(" VALUES ")(1).trim
@@ -62,22 +62,22 @@ class DumpParser {
 
   }
   
-  def main(args: Array[String]) {
-    val conf = new ParserConf(args) // TODO detect type from CREATE TABLE statement
-    println("Reading %s".format(conf.dumpFilePath()))
-    val dumpType = conf.dumpType()
-    val outputFormat = conf.outputFormat()
-    val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
-    val session = SparkSession.builder.config(sconf).getOrCreate()
-    val dumpEltType = dumpType match {
-      case "page" => WikipediaDumpType.Page
-      case "pagelinks" => WikipediaDumpType.PageLinks
-      case "redirect" => WikipediaDumpType.Redirect
-      case "category" => WikipediaDumpType.Category
-      case "categorylinks" => WikipediaDumpType.CategoryLinks
-    }
-    process(session, conf.dumpFilePath(), dumpEltType, conf.outputPath(), conf.outputFormat())
+  // main  
+  val conf = new ParserConf(args) // TODO detect type from CREATE TABLE statement
+  println("Reading %s".format(conf.dumpFilePath()))
+  val dumpType = conf.dumpType()
+  val outputFormat = conf.outputFormat()
+  val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
+  val session = SparkSession.builder.config(sconf).getOrCreate()
+  val dumpEltType = dumpType match {
+    case "page" => WikipediaDumpType.Page
+    case "pagelinks" => WikipediaDumpType.PageLinks
+    case "redirect" => WikipediaDumpType.Redirect
+    case "category" => WikipediaDumpType.Category
+    case "categorylinks" => WikipediaDumpType.CategoryLinks
   }
+  process(session, conf.dumpFilePath(), dumpEltType, conf.outputPath(), conf.outputFormat())
+
 
 }
 

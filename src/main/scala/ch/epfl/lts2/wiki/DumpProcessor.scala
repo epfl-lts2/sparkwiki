@@ -11,7 +11,7 @@ class ProcessorConf(args:Seq[String]) extends ScallopConf(args) {
   verify()
 }
 
-class DumpProcessor extends App {
+object DumpProcessor  {
   def writeCsv(df:DataFrame, outputPath:String) = {
     df.write.option("delimiter", "\t")
             .option("header", false)
@@ -20,7 +20,7 @@ class DumpProcessor extends App {
             .csv(outputPath)
   }
   
-  override def main(args:Array[String]) = {
+  def main(args:Array[String]) = {
     val conf = new ProcessorConf(args)
     val dumpParser = new DumpParser
     val sconf = new SparkConf().setAppName("Wikipedia dump processor").setMaster("local[*]")
