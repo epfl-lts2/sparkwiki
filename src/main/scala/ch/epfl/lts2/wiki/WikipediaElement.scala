@@ -11,10 +11,10 @@ object WikipediaDumpType extends Enumeration {
 
 object WikipediaNamespace extends Enumeration {
   // cf https://en.wikipedia.org/wiki/Wikipedia:Namespace
-  val Page = 0
-  val Category = 14
-  val Portal = 100
-  val Book = 108
+  val Page:Int = 0
+  val Category:Int = 14
+  val Portal:Int = 100
+  val Book:Int = 108
 }
 
 abstract class WikipediaElement extends Serializable
