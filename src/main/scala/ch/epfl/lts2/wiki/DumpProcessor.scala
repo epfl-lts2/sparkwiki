@@ -12,14 +12,6 @@ class ProcessorConf(args:Seq[String]) extends ScallopConf(args) {
 }
 
 object DumpProcessor  {
-  def writeCsv(df:DataFrame, outputPath:String) = {
-    df.write.option("delimiter", "\t")
-            .option("header", false)
-            .option("quote", "")
-            .option("compression", "gzip")
-            .csv(outputPath)
-  }
-  
   def main(args:Array[String]) = {
     val conf = new ProcessorConf(args)
     val dumpParser = new DumpParser
@@ -65,11 +57,12 @@ object DumpProcessor  {
     val normal_pages = pageDf.filter($"namespace" === WikipediaNamespace.Page)
                              .select("id", "title", "isRedirect", "isNew")
     
-    writeCsv(normal_pages, pageOutput.resolve("normal_pages").toString)
-    writeCsv(cat_pages, pageOutput.resolve("category_pages").toString)
-    writeCsv(pagelinks_id, pageLinksOutput)
-    writeCsv(redirect_id, redirectOutput)
-    writeCsv(catlinks_id, categoryLinksOutput)
+    // generate files that can be imported in neo4j
+    dumpParser.writeCsv(normal_pages, pageOutput.resolve("normal_pages").toString)
+    dumpParser.writeCsv(cat_pages, pageOutput.resolve("category_pages").toString)
+    dumpParser.writeCsv(pagelinks_id, pageLinksOutput)
+    dumpParser.writeCsv(redirect_id, redirectOutput)
+    dumpParser.writeCsv(catlinks_id, categoryLinksOutput)
     
   }
 }
