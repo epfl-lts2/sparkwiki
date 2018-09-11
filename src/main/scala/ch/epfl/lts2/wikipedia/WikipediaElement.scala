@@ -1,4 +1,4 @@
-package ch.epfl.lts2.wiki
+package ch.epfl.lts2.wikipedia
 import java.text.SimpleDateFormat
 import java.sql.Timestamp
 import java.util.Date

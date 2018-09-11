@@ -1,4 +1,4 @@
-package ch.epfl.lts2.wiki
+package ch.epfl.lts2.wikipedia
 import java.io.File
 
 import org.apache.hadoop.conf.Configuration

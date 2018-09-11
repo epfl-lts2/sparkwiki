@@ -1,4 +1,4 @@
-package ch.epfl.lts2.wiki
+package ch.epfl.lts2.wikipedia
 import java.nio.file.Paths
 import org.rogach.scallop._
 import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession}
@@ -38,6 +38,8 @@ object DumpProcessor  {
     import session.implicits._
     val pagelinks_id = pageLinksDf.join(pageDf, Seq("title", "namespace"))
                                   .select("from", "id", "title", "fromNamespace", "namespace")
+    
+    dumpParser.writeCsv(pagelinks_id, pageLinksOutput)
                                   
     val redirect_id = redirectDf.withColumn("id", redirectDf.col("from"))
                               .join(pageDf.drop(pageDf.col("title")), "id")
@@ -45,6 +47,8 @@ object DumpProcessor  {
                               .withColumn("namespace", redirectDf.col("targetNamespace"))
                               .join(pageDf, Seq("title", "namespace")).select("from", "id", "title")
                               
+    dumpParser.writeCsv(redirect_id, redirectOutput)
+    
     val cat_pages = pageDf.filter($"namespace" === WikipediaNamespace.Category)
                           .select("id", "title", "isRedirect", "isNew")
     val catlinks_id = categoryLinksDf.withColumn("id", categoryLinksDf.col("from"))
@@ -52,17 +56,15 @@ object DumpProcessor  {
                               .select("from", "to", "ctype")
                               .withColumn("title", categoryLinksDf.col("to"))
                               .join(cat_pages.select("id", "title"), "title")
-                              .select("from", "title", "id", "ctype")  
+                              .select("from", "title", "id", "ctype")
+    dumpParser.writeCsv(catlinks_id, categoryLinksOutput)
+    dumpParser.writeCsv(cat_pages, pageOutput.resolve("category_pages").toString)
     
     val normal_pages = pageDf.filter($"namespace" === WikipediaNamespace.Page)
                              .select("id", "title", "isRedirect", "isNew")
     
-    // generate files that can be imported in neo4j
     dumpParser.writeCsv(normal_pages, pageOutput.resolve("normal_pages").toString)
-    dumpParser.writeCsv(cat_pages, pageOutput.resolve("category_pages").toString)
-    dumpParser.writeCsv(pagelinks_id, pageLinksOutput)
-    dumpParser.writeCsv(redirect_id, redirectOutput)
-    dumpParser.writeCsv(catlinks_id, categoryLinksOutput)
+    
     
   }
 }
