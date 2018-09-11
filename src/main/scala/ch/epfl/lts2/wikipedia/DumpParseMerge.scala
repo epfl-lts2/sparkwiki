@@ -1,4 +1,4 @@
-package wiki
+package ch.epfl.lts2.wikipedia
 import java.nio.file.Paths
 
 import org.apache.hadoop.conf.Configuration
@@ -23,9 +23,7 @@ class MergeConf(args: Seq[String]) extends ScallopConf(args) {
 }
 
 object DumpParseMerge {
-  val PAGE_NAMESPACE = 0
-  val CATEGORY_NAMESPACE = 14
-  
+ 
   def writeCsv(df:DataFrame, outputPath:String) = {
     df.write.option("delimiter", "\t")
             .option("header", false)
@@ -36,12 +34,13 @@ object DumpParseMerge {
   
   def splitPages(session:SparkSession, pages:DataFrame, outputPath:String) = {
     import session.implicits._
-    val normal_pages = pages.filter($"namespace" === PAGE_NAMESPACE).select("id", "title", "isRedirect", "isNew")
-    val cat_pages = pages.filter($"namespace" === CATEGORY_NAMESPACE).select("id", "title", "isRedirect", "isNew")
+    val normal_pages = pages.filter($"namespace" === WikipediaNamespace.Page).select("id", "title", "isRedirect", "isNew")
+    val cat_pages = pages.filter($"namespace" === WikipediaNamespace.Category).select("id", "title", "isRedirect", "isNew")
     writeCsv(normal_pages, Paths.get(outputPath, "normal_pages").toString)
     writeCsv(cat_pages, Paths.get(outputPath, "category_pages").toString)
     
   }
+  
   def joinPageLinks(session:SparkSession, pages:DataFrame, pageLinkPath:String, outputPath:String) = {
     import session.implicits._
    
@@ -49,7 +48,7 @@ object DumpParseMerge {
     val pagelinks_id = pagelinks.join(pages, Seq("title", "namespace"))
                                 .select("from", "id", "title", "fromNamespace", "namespace")
     writeCsv(pagelinks_id, outputPath)                            
-   }
+  }
   
   def joinRedirect(session:SparkSession, pages:DataFrame, redirectPath:String, outputPath:String) = {
     val redirect = session.read.parquet(redirectPath)
@@ -66,7 +65,7 @@ object DumpParseMerge {
   def joinCategory(session:SparkSession, pages:DataFrame, categoryLinksPath:String, outputPath:String) = {
     import session.implicits._
     val catlinks = session.read.parquet(categoryLinksPath)
-    val cat_pages = pages.filter($"namespace" === CATEGORY_NAMESPACE).select("id", "title")
+    val cat_pages = pages.filter($"namespace" === WikipediaNamespace.Category).select("id", "title")
     val catlinks_pg = catlinks.withColumn("id", catlinks.col("from"))
                               .join(pages, "id")
                               .select("from", "to", "ctype")

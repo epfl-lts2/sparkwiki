@@ -1,9 +1,26 @@
-package wiki
+package ch.epfl.lts2.wikipedia
 import java.text.SimpleDateFormat
 import java.sql.Timestamp
 import java.util.Date
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
+
+object WikipediaDumpType extends Enumeration {
+  // values must match the table name !
+  val Page = Value("page")
+  val PageLinks = Value("pagelinks")
+  val Redirect = Value("redirect")
+  val Category = Value("category")
+  val CategoryLinks = Value("categorylinks")
+}
+
+object WikipediaNamespace extends Enumeration {
+  // cf https://en.wikipedia.org/wiki/Wikipedia:Namespace
+  val Page:Int = 0
+  val Category:Int = 14
+  val Portal:Int = 100
+  val Book:Int = 108
+}
 
 abstract class WikipediaElement extends Serializable
 
@@ -11,11 +28,6 @@ trait WikipediaElementParser[T <: WikipediaElement with Product] {
   def parseLine(lineInput:String): List[T]
   def filterElt(t: T): Boolean
   def getDataFrame(session: SparkSession, lines: RDD[String]): DataFrame
-  
-  // check https://en.wikipedia.org/wiki/Wikipedia:Namespace
-  val PAGE_NAMESPACE = 0
-  val CATEGORY_NAMESPACE = 14
-  val PORTAL_NAMESPACE = 100
 }
 
 
@@ -64,7 +76,8 @@ class WikipediaPageParser extends Serializable with WikipediaElementParser[Wikip
   }
     
   
-  def filterElt(t: WikipediaPage):Boolean = (t.namespace == PAGE_NAMESPACE || t.namespace == CATEGORY_NAMESPACE)
+  def filterElt(t: WikipediaPage):Boolean = (t.namespace == WikipediaNamespace.Page || 
+                                             t.namespace == WikipediaNamespace.Category)
   def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
     session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt))
               .select("id", "namespace", "title", "isRedirect", "isNew")
@@ -86,8 +99,8 @@ class WikipediaPageLinkParser extends Serializable with WikipediaElementParser[W
   }
   
   
-  def filterElt(t:WikipediaPageLink): Boolean = (t.namespace == PAGE_NAMESPACE || t.namespace == CATEGORY_NAMESPACE) && 
-                                                (t.fromNamespace == PAGE_NAMESPACE || t.fromNamespace == CATEGORY_NAMESPACE)
+  def filterElt(t:WikipediaPageLink): Boolean = (t.namespace == WikipediaNamespace.Page || t.namespace == WikipediaNamespace.Category) && 
+                                                (t.fromNamespace == WikipediaNamespace.Page || t.fromNamespace == WikipediaNamespace.Category)
   def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
     session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt))
   }
@@ -109,7 +122,7 @@ class WikipediaRedirectParser extends Serializable with WikipediaElementParser[W
   }
   
   
-  def filterElt(t: WikipediaRedirect):Boolean = t.targetNamespace == PAGE_NAMESPACE || t.targetNamespace == CATEGORY_NAMESPACE
+  def filterElt(t: WikipediaRedirect):Boolean = t.targetNamespace == WikipediaNamespace.Page || t.targetNamespace == WikipediaNamespace.Category
   def getDataFrame(session:SparkSession, lines: RDD[String]):DataFrame = {
     session.createDataFrame(lines.flatMap(l => parseLine(l)).filter(filterElt))
   }
