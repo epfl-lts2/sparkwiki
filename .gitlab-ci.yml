@@ -14,9 +14,9 @@ before_script:
   - apt-get update -yqq
   - apt-get install sbt -yqq
   # Log the sbt version
-  - sbt sbt-version
+  - sbt version
 
 test:
   script:
     # Execute your project's tests
-    - sbt clean test
+    - sbt clean compile test
