@@ -1,0 +1,76 @@
+package ch.epfl.lts2.wikipedia
+
+trait TestData {
+  val sqlPage = "INSERT INTO `page` VALUES (10,0,'AccessibleComputing','',0,1,0,0.33167112649574004,'20180709171712','20180410125914',834079434,122,'wikitext',NULL),"+
+                "(12,14,'Anarchism','',5252,0,0,0.786172332974311,'20180730175243','20180730175339',851684166,188642,'wikitext',NULL),"+
+                "(13,0,'AfghanistanHistory','',5,1,0,0.0621502865684687,'20180726011011','20180410125914',783865149,90,'wikitext',NULL);  ";
+  val expectPage = "(10,0,'AccessibleComputing','',0,1,0,0.33167112649574004,'20180709171712','20180410125914',834079434,122,'wikitext',NULL),"+
+                "(12,14,'Anarchism','',5252,0,0,0.786172332974311,'20180730175243','20180730175339',851684166,188642,'wikitext',NULL),"+
+                "(13,0,'AfghanistanHistory','',5,1,0,0.0621502865684687,'20180726011011','20180410125914',783865149,90,'wikitext',NULL);"
+    
+  val sqlPageLong = "INSERT INTO `page` VALUES (45531,1,'Nutella','',16,0,0,0.991077012374138,'20180719182251','20180719183033',822603196,45774,'wikitext',NULL),"+
+    "(45532,14,'Sicily','',52,0,0,0.225302804471276,'20180730215355','20180719183033',816829334,17508,'wikitext',NULL),"+
+    "(45533,14,'Pseudorandom_number_generator','',72,0,0,0.15328301596761,'20180730215355','20180721083714',758633004,38067,'wikitext',NULL),"+
+    "(45534,0,'Aldo_Rossi','',171,0,0,0.626400400536508,'20180729135853','20180727134319',839426882,21868,'wikitext',NULL),"+
+    "(45535,0,'Alessi_(Italian_company)','',98,0,0,0.758433868883582,'20180714012338','20180714012338',850159824,9785,'wikitext',NULL),"+
+    "(45536,1,'Hangul/Archive_1','',109,0,0,0.69190228236085,'20180725104745','20180725110615',715813089,128904,'wikitext',NULL),"+
+    "(45537,0,'Ustad_Isa','',152,0,0,0.91296817354203,'20180725104745','20180725105318',797679342,2279,'wikitext',NULL),"+
+    "(45538,0,'Mersenne_Twister','',737,0,0,0.289539291793051,'20180727131127','20180727131556',851758798,29213,'wikitext',NULL),"+
+    "(45539,1,'Venus_(mythology)','',54,0,0,0.21354275589207397,'20180730215355','20180719183033',822111405,20769,'wikitext',NULL),"+
+    "(45540,14,'Mersenne_Twister','',27,0,0,0.07296370907962671,'20180721082243','20180721083714',813229298,70956,'wikitext',NULL),"+
+    "(45541,0,'Social_Darwinism','',1949,0,0,0.7087919690728111,'20180729200203','20180729200203',852554169,39122,'wikitext',NULL),"+
+    "(45542,1,'Social_Darwinism','',91,0,0,0.40206044577254,'20180730215355','20180721083714',849224912,49466,'wikitext',NULL),"+
+    "(45543,1,'Amsterdam','',34,0,0,0.837731334229681,'20180730215355','20180729102829',851452750,63073,'wikitext',NULL),"+
+    "(45545,1,'William_Ernest_Henley','',40,0,0,0.399182850866749,'20180730215355','20180719183033',812559971,4508,'wikitext',NULL),"+
+    "(45546,0,'Refugees','',4,1,0,0.250334127107946,'20180725065111','20180410135248',769630669,70,'wikitext', NULL);"
+  
+  val expectPageLong = "(45531,1,'Nutella','',16,0,0,0.991077012374138,'20180719182251','20180719183033',822603196,45774,'wikitext',NULL),"+
+    "(45532,14,'Sicily','',52,0,0,0.225302804471276,'20180730215355','20180719183033',816829334,17508,'wikitext',NULL),"+
+    "(45533,14,'Pseudorandom_number_generator','',72,0,0,0.15328301596761,'20180730215355','20180721083714',758633004,38067,'wikitext',NULL),"+
+    "(45534,0,'Aldo_Rossi','',171,0,0,0.626400400536508,'20180729135853','20180727134319',839426882,21868,'wikitext',NULL),"+
+    "(45535,0,'Alessi_(Italian_company)','',98,0,0,0.758433868883582,'20180714012338','20180714012338',850159824,9785,'wikitext',NULL),"+
+    "(45536,1,'Hangul/Archive_1','',109,0,0,0.69190228236085,'20180725104745','20180725110615',715813089,128904,'wikitext',NULL),"+
+    "(45537,0,'Ustad_Isa','',152,0,0,0.91296817354203,'20180725104745','20180725105318',797679342,2279,'wikitext',NULL),"+
+    "(45538,0,'Mersenne_Twister','',737,0,0,0.289539291793051,'20180727131127','20180727131556',851758798,29213,'wikitext',NULL),"+
+    "(45539,1,'Venus_(mythology)','',54,0,0,0.21354275589207397,'20180730215355','20180719183033',822111405,20769,'wikitext',NULL),"+
+    "(45540,14,'Mersenne_Twister','',27,0,0,0.07296370907962671,'20180721082243','20180721083714',813229298,70956,'wikitext',NULL),"+
+    "(45541,0,'Social_Darwinism','',1949,0,0,0.7087919690728111,'20180729200203','20180729200203',852554169,39122,'wikitext',NULL),"+
+    "(45542,1,'Social_Darwinism','',91,0,0,0.40206044577254,'20180730215355','20180721083714',849224912,49466,'wikitext',NULL),"+
+    "(45543,1,'Amsterdam','',34,0,0,0.837731334229681,'20180730215355','20180729102829',851452750,63073,'wikitext',NULL),"+
+    "(45545,1,'William_Ernest_Henley','',40,0,0,0.399182850866749,'20180730215355','20180719183033',812559971,4508,'wikitext',NULL),"+
+    "(45546,0,'Refugees','',4,1,0,0.250334127107946,'20180725065111','20180410135248',769630669,70,'wikitext', NULL);"
+    
+  val sqlPageLinks = "INSERT INTO `pagelinks` VALUES (53942034,0,'1000_in_Japan',0),(53942079,0,'1000_in_Japan',0),(53942112,0,'1000_in_Japan',0),"+
+    "(53942127,0,'1000_in_Japan',0),(53945851,0,'1000_in_Japan',0),(53946178,0,'1000_in_Japan',0),(53946194,0,'1000_in_Japan',0),"+
+    "(53946212,0,'1000_in_Japan',0),(53946224,0,'1000_in_Japan',0),(53946269,0,'1000_in_Japan',0),(53946281,0,'1000_in_Japan',0),"+
+    "(53946300,0,'1000_in_Japan',0),(53946318,0,'1000_in_Japan',0),(53946331,0,'1000_in_Japan',0),(53946342,0,'1000_in_Japan',0),"+
+    "(53946349,0,'1000_in_Japan',0),(53946370,0,'1000_in_Japan',0),(53946392,0,'1000_in_Japan',0),(53946399,0,'1000_in_Japan',0),"+
+    "(53946409,0,'1000_in_Japan',0),(53946582,0,'1000_in_Japan',0),(53946594,0,'1000_in_Japan',0),(53946624,0,'1000_in_Japan',0),"+
+    "(53946638,0,'1000_in_Japan',0),(53946650,0,'1000_in_Japan',0),(53946679,0,'1000_in_Japan',0),(53946689,0,'1000_in_Japan',0),"+
+    "(53946715,0,'1000_in_Japan',0),(53946726,0,'1000_in_Japan',0),(53946737,0,'1000_in_Japan',0),(53952923,0,'1000_in_Japan',0),"+
+    "(53952958,0,'1000_in_Japan',0),(53952993,0,'1000_in_Japan',0),(53953002,0,'1000_in_Japan',0),(53953013,0,'1000_in_Japan',0),"+
+    "(53953021,0,'1000_in_Japan',0),(53953037,0,'1000_in_Japan',0),(53986322,0,'1000_in_Japan',0),(53986345,0,'1000_in_Japan',0),"+
+    "(53986353,0,'1000_in_Japan',0),(53986373,0,'1000_in_Japan',0),(53986397,0,'1000_in_Japan',0),(53989891,0,'1000_in_Japan',0),"+
+    "(53989911,0,'1000_in_Japan',0);"
+  
+  val sqlRedirect = "INSERT INTO `redirect` VALUES (10,0,'Computer_accessibility','',''),(13,0,'History_of_Afghanistan','',''),(14,0,'Geography_of_Afghanistan','',''),"+
+    "(15,0,'Demographics_of_Afghanistan','',''),(18,0,'Communications_in_Afghanistan','',''),(19,0,'Transport_in_Afghanistan','',''),"+
+    "(20,0,'Afghan_Armed_Forces','',''),(21,0,'Foreign_relations_of_Afghanistan','',''),(23,0,'Assistive_technology','',''),"+
+    "(24,0,'Amoeba','',''),(27,0,'History_of_Albania','','');"
+  
+  val sqlCategory = "INSERT INTO `category` VALUES (388194,'Colombian_death_metal_musical_groups',2,0,0),(388195,'Museums_in_Leicestershire',22,5,0),"+
+    "(388196,'Culture_in_Leicestershire',23,7,0),(388198,'Sports_in_Norfolk,_Virginia',20,6,0),(388199,'Portuguese_death_metal_musical_groups',2,0,0),"+
+    "(388204,'Sports_venues_in_Norfolk,_Virginia',14,0,0),(388205,'Swiss_death_metal_musical_groups',5,0,0),(388206,'Peruvian_death_metal_musical_groups',2,0,0),"+
+    "(388207,'Peruvian_black_metal_musical_groups',2,0,0),(388208,'Peruvian_heavy_metal_musical_groups',2,2,0),(388210,'West_Michigan_Whitecaps_players',153,0,0),"+
+    "(388211,'Erie_SeaWolves_players',247,0,0),(388215,'Works_by_Alan_Garner',2,2,0),(388219,'Belarusian_heavy_metal_musical_groups',7,0,0),"+
+    "(388220,'Short_stories_by_Alan_Garner',1,0,0),(388221,'Museums_in_Cheshire',26,5,0),(388222,'Culture_in_Cheshire',14,8,0);"
+  
+  val sqlCatLink = "INSERT INTO `categorylinks` VALUES (6533,'English_male_short_story_writers','U9??9)AM^F^D-7)','2015-08-12 01:42:44','Williams, Charles','uca-default-u-kn','page'),"+
+    "(6533,'EngvarB_from_August_2014','U9??9)AM^F^D-7)K?1M^C^F-','2014-08-26 01:17:19','Williams, Charles','uca-default-u-kn','page'),"+
+    "(6533,'Inklings','U9??9)AM^F^D-7)K?1M^C^F-7)K?1M^DU9??9)AM','2007-06-20 18:59:31','Williams, Charles','uca-default-u-kn','page'),"+
+    "(6533,'Mythopoeic_writers','U9??9)AM^F^D-7)K?1M^C^F-7)K?1M^DU9??9)AM^D','2007-06-20 18:59:31','Williams, Charles','uca-default-u-kn','page'),"+
+    "(6533,'Oxford_University_Press_people','U9??9)AM^F^D-7)K?1M^C^F-7)K?1M^DU9??','2018-07-23 16:46:06','Williams, Charles','uca-default-u-kn','page'),"+
+    "(6533,'Pages_using_citations_with_format_and_no_URL','U9??9)AM^F^D-7)K?1M^C^F-7)K?1M^DU9','2013-04-05 16:17:50','Williams, Charles','uca-default-u-kn','page'),"+
+    "(6533,'People_educated_at_St_Albans_School,_Hertfordshire','U9??','2011-08-24 20:20:49','Williams, Charles','uca-default-u-kn','page');"
+  
+}

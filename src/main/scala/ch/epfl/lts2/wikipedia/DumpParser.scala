@@ -38,10 +38,9 @@ class DumpParser extends Serializable  {
     df.write.option("compression", "gzip").parquet(outputPath)
   }
   
-  def processToDf(session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value):DataFrame = {
-    val lines = session.sparkContext.textFile(inputFilename, 4)
+  def processToDf(session: SparkSession, input:RDD[String], dumpType:WikipediaDumpType.Value):DataFrame = {
     
-    val sqlLines = lines.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(dumpType)))
+    val sqlLines = input.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(dumpType)))
     val records = sqlLines.map(l => splitSqlInsertLine(l))
     val parser = dumpType match {
       case WikipediaDumpType.Page => new WikipediaPageParser
@@ -53,8 +52,14 @@ class DumpParser extends Serializable  {
     
     parser.getDataFrame(session, records)
   }
+  
+  def processFileToDf(session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value):DataFrame = {
+    val lines = session.sparkContext.textFile(inputFilename, 4)
+    processToDf(session, lines, dumpType)
+  }
+  
   def process(session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value, outputPath:String, outputFormat:String) = {
-    val df = processToDf(session, inputFilename, dumpType)
+    val df = processFileToDf(session, inputFilename, dumpType)
     outputFormat match {
       case "parquet" => writeParquet(df, outputPath)
       case _ => writeCsv(df, outputPath)
