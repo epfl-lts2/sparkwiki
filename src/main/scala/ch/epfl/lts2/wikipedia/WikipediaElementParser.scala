@@ -145,3 +145,33 @@ class WikipediaCategoryLinkParser extends Serializable with WikipediaElementPars
   }
   def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
 }
+
+class WikipediaPagecountParser extends Serializable with WikipediaElementParser[WikipediaPagecount] {
+  val pageCountRegex = """^([a-z]{2}\.[a-z]) (.*?) (\d+) ((?:[A-Z]\d+)+)$""".r
+  val titleNsRegex = """(.*?):(.*?)""".r
+  def parseLine(lineInput:String): List[WikipediaPagecount] = {
+    val r = pageCountRegex.findAllIn(lineInput).matchData.toList
+    r.map(m => {
+      val extTitle = m.group(2)
+      val (title, nsStr) = extTitle match {
+        case titleNsRegex(nsStr, title) => (title, nsStr)
+        case _ => (extTitle, "Page")
+      }
+      val ns = nsStr match {
+        case "Page" => WikipediaNamespace.Page
+          case "Category" => WikipediaNamespace.Category
+          case "Book" => WikipediaNamespace.Book
+          case _ => WikipediaNamespace.Dummy
+      }
+      WikipediaPagecount(m.group(1), title, ns, m.group(3).toInt, m.group(4))
+    })
+  }
+  
+  def filterElt(t: WikipediaPagecount):Boolean = t.project == "en.z" && 
+                                                              (t.namespace == WikipediaNamespace.Page || t.namespace == WikipediaNamespace.Category)
+                                                              
+  def getRDD(lines:RDD[String]):RDD[WikipediaPagecount] = {
+    lines.flatMap(l => parseLine(l)).filter(filterElt)
+  }
+  def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
+}

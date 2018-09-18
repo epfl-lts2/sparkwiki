@@ -16,6 +16,7 @@ object WikipediaDumpType extends Enumeration {
 
 object WikipediaNamespace extends Enumeration {
   // cf https://en.wikipedia.org/wiki/Wikipedia:Namespace
+  val Dummy:Int = -1
   val Page:Int = 0
   val Category:Int = 14
   val Portal:Int = 100
@@ -42,5 +43,5 @@ case class WikipediaCategory(id:Int, title:String, pages:Int, subcats:Int, files
 case class WikipediaCategoryLink(from:Int, to:String, sortKey:String, timestamp:Timestamp, 
                                   sortkeyPrefix:String, collation:String, ctype:String) extends WikipediaElement
 
-
+case class WikipediaPagecount(project:String, title:String, namespace:Int, dailyVisits:Int, hourlyVisits:String) extends WikipediaElement
 
