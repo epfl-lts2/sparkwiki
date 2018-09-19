@@ -175,3 +175,11 @@ class WikipediaPagecountParser extends Serializable with WikipediaElementParser[
   }
   def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
 }
+
+class WikipediaHourlyVisitsParser extends Serializable {
+  val visitRegex = """([A-Z])(\d+)""".r
+  def parseField(input:String): List[WikipediaHourlyVisit] = {
+    val r = visitRegex.findAllIn(input).matchData.toList
+    r.map(m => WikipediaHourlyVisit(m.group(1).charAt(0).toInt - 'A'.toInt, m.group(2).toInt))
+  }
+}
