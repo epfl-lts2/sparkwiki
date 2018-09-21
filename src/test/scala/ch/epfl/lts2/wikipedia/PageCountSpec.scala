@@ -1,6 +1,7 @@
 package ch.epfl.lts2.wikipedia
 
 import org.scalatest._
+import java.time._
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession, Dataset}
 
@@ -41,6 +42,14 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
     assert(r3.size == 24)
     val r3m = r3.map(w => (w.hour, w.visits)).toMap
     assert(r3m(23) == 6 && r3m(22) == 15 && r3m(0) == 9 && r3m(1) == 13)
+  }
+  
+  "PagecountProcessor" should "generate correct date ranges" in {
+    val p = new PagecountProcessor
+    val range = p.dateRange(LocalDate.parse("2018-08-01"), LocalDate.parse("2018-08-10"), Period.ofDays(1))
+    assert(range.size == 10)
+    val r2 = p.dateRange(LocalDate.parse("2017-08-01"), LocalDate.parse("2017-09-01"), Period.ofDays(1))
+    assert(r2.size == 32)
   }
   
 }
