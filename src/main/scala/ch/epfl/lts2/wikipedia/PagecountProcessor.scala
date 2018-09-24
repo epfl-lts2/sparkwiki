@@ -19,10 +19,11 @@ class PagecountConf(args: Seq[String]) extends ScallopConf(args) {
   verify()
 }
 
-class PagecountProcessor {
+class PagecountProcessor extends CsvWriter {
   lazy val sconf = new SparkConf().setAppName("Wikipedia pagecount processor").setMaster("local[*]")
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
   val parser = new WikipediaPagecountParser
+  
   def dateRange(from: LocalDate, to: LocalDate, step: Period) : Iterator[LocalDate] = {
      Iterator.iterate(from)(_.plus(step)).takeWhile(!_.isAfter(to))
   }
@@ -34,11 +35,21 @@ class PagecountProcessor {
   def mergePagecount(pageDf:DataFrame, pagecountDf:DataFrame): DataFrame = {
     pagecountDf.join(pageDf, Seq("title", "namespace"))
   }
+  
+  def getPageDataFrame(fileName:String):DataFrame = {
+     if (fileName.endsWith("sql.bz2") || fileName.endsWith("sql.gz")) { // seems like we are reading a table dump 
+        val pageParser = new DumpParser
+        pageParser.processFileToDf(session, fileName, WikipediaDumpType.Page).select("id", "namespace", "title")
+      } else { // otherwise try to import from a parquet file
+        session.read.parquet(fileName)   
+      }
+  }
 }
 
 object PagecountProcessor {
   val pgCountProcessor = new PagecountProcessor
   val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+  
   def main(args:Array[String]) = {
     val cfg = new PagecountConf(args)
     
@@ -49,13 +60,12 @@ object PagecountProcessor {
     
     val pcDf = pgInputRdd.mapValues(p => pgCountProcessor.parseLines(p, cfg.minDailyVisit()))
     
-    if (cfg.pageDump.supplied) {
-      val pageParser = new DumpParser
-      val pgDf = pageParser.processFileToDf(pgCountProcessor.session, cfg.pageDump(), WikipediaDumpType.Page).select("id", "namespace", "title")
+    if (cfg.pageDump.supplied) { 
+      val pgDf = pgCountProcessor.getPageDataFrame(cfg.pageDump())  
       
       // join page and page count
       val pcDf_id = pcDf.mapValues(pcdf => pgCountProcessor.mergePagecount(pgDf, pcdf))
-      val dummy = pcDf_id.map(pc_id => pageParser.writeCsv(pc_id._2, Paths.get(cfg.outputPath(), pc_id._1.format(dateFormatter)).toString))
+      val dummy = pcDf_id.map(pc_id => pgCountProcessor.writeCsv(pc_id._2, Paths.get(cfg.outputPath(), pc_id._1.format(dateFormatter)).toString))
     }
   }
 }

@@ -22,15 +22,9 @@ class MergeConf(args: Seq[String]) extends ScallopConf(args) {
   verify()
 }
 
-object DumpParseMerge {
+object DumpParseMerge extends CsvWriter {
  
-  def writeCsv(df:DataFrame, outputPath:String) = {
-    df.write.option("delimiter", "\t")
-            .option("header", false)
-            .option("quote", "")
-            .option("compression", "gzip")
-            .csv(outputPath)
-  }
+ 
   
   def splitPages(session:SparkSession, pages:DataFrame, outputPath:String) = {
     import session.implicits._
