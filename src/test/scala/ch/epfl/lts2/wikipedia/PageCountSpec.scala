@@ -28,19 +28,20 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   
   "WikipediaHourlyVisitParser" should "parse hourly visits fields correctly" in {
     val p = new WikipediaHourlyVisitsParser
-    val r = p.parseField("J1")
+    val d = LocalDate.of(2018, 8, 1)
+    val r = p.parseField("J1", d)
     assert(r.size == 1)
     val j1 = r.head
-    assert(j1.hour == 9 && j1.visits == 1)
+    assert(j1.time.getHour == 9 && j1.visits == 1)
     
-    val r2 = p.parseField("C1P3")
+    val r2 = p.parseField("C1P3", d)
     assert(r2.size == 2)
-    val r2m = r2.map(w => (w.hour, w.visits)).toMap
+    val r2m = r2.map(w => (w.time.getHour, w.visits)).toMap
     assert(r2m(2) == 1 && r2m(15) == 3)
     
-    val r3 = p.parseField("A9B13C9D15E7F14G9H8I8J9K8L4M9N18O9P15Q17R12S10T12U7V15W15X6")
+    val r3 = p.parseField("A9B13C9D15E7F14G9H8I8J9K8L4M9N18O9P15Q17R12S10T12U7V15W15X6", d)
     assert(r3.size == 24)
-    val r3m = r3.map(w => (w.hour, w.visits)).toMap
+    val r3m = r3.map(w => (w.time.getHour, w.visits)).toMap
     assert(r3m(23) == 6 && r3m(22) == 15 && r3m(0) == 9 && r3m(1) == 13)
   }
   
