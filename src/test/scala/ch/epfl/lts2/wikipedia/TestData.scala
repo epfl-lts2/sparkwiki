@@ -72,5 +72,29 @@ trait TestData {
     "(6533,'Oxford_University_Press_people','U9??9)AM^F^D-7)K?1M^C^F-7)K?1M^DU9??','2018-07-23 16:46:06','Williams, Charles','uca-default-u-kn','page'),"+
     "(6533,'Pages_using_citations_with_format_and_no_URL','U9??9)AM^F^D-7)K?1M^C^F-7)K?1M^DU9','2013-04-05 16:17:50','Williams, Charles','uca-default-u-kn','page'),"+
     "(6533,'People_educated_at_St_Albans_School,_Hertfordshire','U9??','2011-08-24 20:20:49','Williams, Charles','uca-default-u-kn','page');"
+    
+  val pageCount = """en.z 16th_World_Science_Fiction_Convention 1 D1
+en.z 16th_World_Scout_Jamboree 7 B4K1S2
+en.z 16th_amendment 2 C1P1
+#comment line should be skipped
+en.z Category:16th_ammendment 1 J1
+en.z 16th_and_17th_Republican_People's_Party_Extraordinary_Conventions 1 H1
+en.z 16th_arrondissement 3 O1Q1S1
+en.z 16th_arrondissement_of_Marseille 22 B1E1K1L2M3N3P2Q3R2S1T1V1W1
+en.z 16th_arrondissement_of_Paris 188 A6B7C7D8E4F3G5H2I4J8K6L3M12N32O9P10Q6R13S14T7U8V5W3X6
+en.z 16th_century 258 A9B13C9D15E7F14G9H8I8J9K8L4M9N18O9P15Q17R12S10T12U7V15W15X6
+en.z 16th_century_BC 24 A2B2C1D1E2F2I1L1M1N3Q1R1S2T1U1V1X1
+en.z 16th_century_england 2 Q1S1
+en.z 16th_century_in_Canada 9 H1J2L1N1P1Q2R1
+en.z 16th_century_in_North_American_history 5 C2F1G1Q1
+en.z 16th_century_in_South_Africa 2 D1O1
+en.z 16th_century_in_Wales 6 N1P3T1X1
+en.z Book:16th_century_in_literature 14 B2F1H2I1L1N1Q3R2T1
+en.z 16th_century_in_poetry 5 I2K1L1X1
+en.z 16th_district_of_Budapest 5 B1M1P1Q1X1
+en.z 16th_meridian_east 7 C2G1H1J1L1P1
+en.z 16th_note 1 M1
+en.z 16th_parallel_north 17 B1C1E2I1M1N1O3P2Q1R1S1W2"""
+
   
 }

@@ -20,19 +20,12 @@ class ParserConf(args: Seq[String]) extends ScallopConf(args) {
   verify()
 }
 
-class DumpParser extends Serializable  {
+class DumpParser extends Serializable  with CsvWriter {
   
   def splitSqlInsertLine(line: String):String = {
     line.split(" VALUES ")(1).trim
   }
     
-  def writeCsv(df:DataFrame, outputPath:String) = {
-    df.write.option("delimiter", "\t")
-            .option("header", false)
-            .option("quote", "")
-            .option("compression", "gzip")
-            .csv(outputPath)
-  }
   
   def writeParquet(df:DataFrame, outputPath: String) =  {
     df.write.option("compression", "gzip").parquet(outputPath)
