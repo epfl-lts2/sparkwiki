@@ -1,6 +1,7 @@
 package ch.epfl.lts2.wikipedia
 import java.text.SimpleDateFormat
 import java.sql.Timestamp
+import java.time._
 import java.util.Date
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -178,8 +179,12 @@ class WikipediaPagecountParser extends Serializable with WikipediaElementParser[
 
 class WikipediaHourlyVisitsParser extends Serializable {
   val visitRegex = """([A-Z])(\d+)""".r
-  def parseField(input:String): List[WikipediaHourlyVisit] = {
+  def parseField(input:String, date:LocalDate): List[WikipediaHourlyVisit] = {
     val r = visitRegex.findAllIn(input).matchData.toList
-    r.map(m => WikipediaHourlyVisit(m.group(1).charAt(0).toInt - 'A'.toInt, m.group(2).toInt))
+    r.map(m => 
+      {
+        val hour = m.group(1).charAt(0).toInt - 'A'.toInt
+        WikipediaHourlyVisit(LocalDateTime.of(date, LocalTime.of(hour, 0, 0)), m.group(2).toInt)
+        })
   }
 }

@@ -23,17 +23,21 @@ class PagecountProcessor extends CsvWriter {
   lazy val sconf = new SparkConf().setAppName("Wikipedia pagecount processor").setMaster("local[*]")
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
   val parser = new WikipediaPagecountParser
+  val hourParser = new WikipediaHourlyVisitsParser
   
   def dateRange(from: LocalDate, to: LocalDate, step: Period) : Iterator[LocalDate] = {
      Iterator.iterate(from)(_.plus(step)).takeWhile(!_.isAfter(to))
   }
   
-  def parseLines(input: RDD[String], minDailyVisits:Int):DataFrame = {
-    session.createDataFrame(parser.getRDD(input.filter(!_.startsWith("#"))).filter(w => w.dailyVisits > minDailyVisits))
+  def parseLines(input: RDD[String], minDailyVisits:Int, date:LocalDate):DataFrame = {
+    val rdd = parser.getRDD(input.filter(!_.startsWith("#"))).filter(w => w.dailyVisits > minDailyVisits)
+                                                             .map(p => (p, hourParser.parseField(p.hourlyVisits, date)))
+    session.createDataFrame(rdd)
   }
   
   def mergePagecount(pageDf:DataFrame, pagecountDf:DataFrame): DataFrame = {
     pagecountDf.join(pageDf, Seq("title", "namespace"))
+               .select("title", "namespace", "id", "dailyVisits", "hourlyVisits")
   }
   
   def getPageDataFrame(fileName:String):DataFrame = {
@@ -41,7 +45,7 @@ class PagecountProcessor extends CsvWriter {
         val pageParser = new DumpParser
         pageParser.processFileToDf(session, fileName, WikipediaDumpType.Page).select("id", "namespace", "title")
       } else { // otherwise try to import from a parquet file
-        session.read.parquet(fileName)   
+        session.read.parquet(fileName)
       }
   }
 }
@@ -58,13 +62,13 @@ object PagecountProcessor {
     val pgInputRdd = files.mapValues(p => pgCountProcessor.session.sparkContext.textFile(p))
     
     
-    val pcDf = pgInputRdd.mapValues(p => pgCountProcessor.parseLines(p, cfg.minDailyVisit()))
+    val pcDf = pgInputRdd.transform((d, p) => (d, pgCountProcessor.parseLines(p, cfg.minDailyVisit(), d)))
     
     if (cfg.pageDump.supplied) { 
       val pgDf = pgCountProcessor.getPageDataFrame(cfg.pageDump())  
       
       // join page and page count
-      val pcDf_id = pcDf.mapValues(pcdf => pgCountProcessor.mergePagecount(pgDf, pcdf))
+      val pcDf_id = pcDf.mapValues(pcdf => pgCountProcessor.mergePagecount(pgDf, pcdf._2))
       val dummy = pcDf_id.map(pc_id => pgCountProcessor.writeCsv(pc_id._2, Paths.get(cfg.outputPath(), pc_id._1.format(dateFormatter)).toString))
     }
   }

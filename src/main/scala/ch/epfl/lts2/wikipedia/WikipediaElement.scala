@@ -2,6 +2,7 @@ package ch.epfl.lts2.wikipedia
 import java.text.SimpleDateFormat
 import java.sql.Timestamp
 import java.util.Date
+import java.time.LocalDateTime
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 
@@ -45,4 +46,4 @@ case class WikipediaCategoryLink(from:Int, to:String, sortKey:String, timestamp:
 
 case class WikipediaPagecount(project:String, title:String, namespace:Int, dailyVisits:Int, hourlyVisits:String) extends WikipediaElement
 
-case class WikipediaHourlyVisit(hour:Int, visits:Int) extends WikipediaElement
+case class WikipediaHourlyVisit(time:LocalDateTime, visits:Int) extends WikipediaElement
