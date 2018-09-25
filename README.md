@@ -18,6 +18,7 @@ wikipedia, namely
 ### Pre-requisites
 You need:
 * an installation of [Apache Spark](https://spark.apache.org/)
+* [Scala sbt](https://www.scala-sbt.org/)
 * data dumps downloaded from the links mentioned above.
 
 *Important*: for performance reason, you should convert `.sql.gz` table dumps 
@@ -29,6 +30,9 @@ Every tool can be run via `spark-submit`, e.g.
 ```
 ./spark-submit --class ch.epfl.lts2.wikipedia.[ToolNameHere]  --master 'local[*]' --executor-memory 4g --driver-memory 4g --packages org.rogach:scallop_2.11:3.1.3 ./sparkwiki/target/scala-2.11/sparkwiki_2.11-0.5.0.jar [ToolArgsHere]
 ```
+
+### Build
+From the project directory, run `sbt package` to build the jar file. If you want to edit the code, run `sbt eclipse`
 
 ### Dump processor
 This tool can be run using the class `ch.epfl.lts2.wikipedia.DumpProcessor` as entry point. It will read the 
