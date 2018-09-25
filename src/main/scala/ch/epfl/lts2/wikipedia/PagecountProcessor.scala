@@ -19,7 +19,7 @@ class PagecountConf(args: Seq[String]) extends ScallopConf(args) {
   verify()
 }
 
-case class PageHourlyVisit(date:String, time:String, title:String, namespace:Int, visits:Int)
+case class PageHourlyVisit(time:Long, title:String, namespace:Int, visits:Int)
 
 class PagecountProcessor extends Serializable with CsvWriter {
   lazy val sconf = new SparkConf().setAppName("Wikipedia pagecount processor").setMaster("local[*]")
@@ -37,13 +37,13 @@ class PagecountProcessor extends Serializable with CsvWriter {
                     .filter(w => w.dailyVisits > minDailyVisits)
                     .map(p => (p, hourParser.parseField(p.hourlyVisits, date)))
                     .flatMap{ case (k, v) => v.map((k, _)) }
-    val fRdd = rdd.map(p => PageHourlyVisit(p._2.time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")), p._2.time.format(DateTimeFormatter.ofPattern("HH:mm:ss")), p._1.title, p._1.namespace, p._2.visits))
+    val fRdd = rdd.map(p => PageHourlyVisit(p._2.time.toInstant(ZoneOffset.UTC).toEpochMilli, p._1.title, p._1.namespace, p._2.visits))
     session.createDataFrame(fRdd)
   }
   
   def mergePagecount(pageDf:DataFrame, pagecountDf:DataFrame): DataFrame = {
     pagecountDf.join(pageDf, Seq("title", "namespace"))
-               .select("date", "time", "title", "namespace", "id", "visits")
+               .select("time", "title", "namespace", "id", "visits")
   }
   
   def getPageDataFrame(fileName:String):DataFrame = {
