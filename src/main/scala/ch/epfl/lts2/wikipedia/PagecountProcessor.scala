@@ -75,7 +75,7 @@ object PagecountProcessor {
       
       // join page and page count
       val pcDf_id = pcDf.mapValues(pcdf => pgCountProcessor.mergePagecount(pgDf, pcdf))
-      val dummy = pcDf_id.map(pc_id => pgCountProcessor.writeCsv(pc_id._2, Paths.get(cfg.outputPath(), pc_id._1.format(dateFormatter)).toString))
+      val dummy = pcDf_id.map(pc_id => pgCountProcessor.writeCsv(pc_id._2, Paths.get(cfg.outputPath(), pc_id._1.format(dateFormatter)).toString, true))
     }
   }
 }
