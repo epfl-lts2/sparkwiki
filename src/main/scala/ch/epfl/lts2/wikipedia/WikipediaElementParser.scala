@@ -160,9 +160,9 @@ class WikipediaPagecountParser extends Serializable with WikipediaElementParser[
       }
       val ns = nsStr match {
         case "Page" => WikipediaNamespace.Page
-          case "Category" => WikipediaNamespace.Category
-          case "Book" => WikipediaNamespace.Book
-          case _ => WikipediaNamespace.Dummy
+        case "Category" => WikipediaNamespace.Category
+        case "Book" => WikipediaNamespace.Book
+        case _ => WikipediaNamespace.Dummy
       }
       WikipediaPagecount(m.group(1), title, ns, m.group(3).toInt, m.group(4))
     })

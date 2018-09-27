@@ -96,5 +96,5 @@ en.z 16th_meridian_east 7 C2G1H1J1L1P1
 en.z 16th_note 1 M1
 en.z 16th_parallel_north 17 B1C1E2I1M1N1O3P2Q1R1S1W2"""
 
-  
+  val pageCount2 = List("en.z AfghanistanHistory 200 A20B20C20D20E20F20G20H20I20J20", "en.z Category:Anarchism 300 A60B60C60D60E60")
 }

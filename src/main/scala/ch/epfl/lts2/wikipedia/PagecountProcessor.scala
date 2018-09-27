@@ -28,17 +28,20 @@ class PagecountProcessor extends Serializable with CsvWriter {
   val hourParser = new WikipediaHourlyVisitsParser
   
   
-  def dateRange(from: LocalDate, to: LocalDate, step: Period) : Iterator[LocalDate] = {
+  def dateRange(from:LocalDate, to:LocalDate, step:Period):Iterator[LocalDate] = {
      Iterator.iterate(from)(_.plus(step)).takeWhile(!_.isAfter(to))
   }
   
-  def parseLines(input: RDD[String], minDailyVisits:Int, date:LocalDate):DataFrame = {
+  def parseLinesToDf(input:RDD[String], minDailyVisits:Int, date:LocalDate):DataFrame = {    
+    session.createDataFrame(parseLines(input, minDailyVisits, date))
+  }
+  
+  def parseLines(input:RDD[String], minDailyVisits:Int, date:LocalDate):RDD[PageHourlyVisit] = {
     val rdd = parser.getRDD(input.filter(!_.startsWith("#")))
                     .filter(w => w.dailyVisits > minDailyVisits)
                     .map(p => (p, hourParser.parseField(p.hourlyVisits, date)))
                     .flatMap{ case (k, v) => v.map((k, _)) }
-    val fRdd = rdd.map(p => PageHourlyVisit(p._2.time.toInstant(ZoneOffset.UTC).toEpochMilli, p._1.title, p._1.namespace, p._2.visits))
-    session.createDataFrame(fRdd)
+    rdd.map(p => PageHourlyVisit(p._2.time.toInstant(ZoneOffset.UTC).toEpochMilli, p._1.title, p._1.namespace, p._2.visits))
   }
   
   def mergePagecount(pageDf:DataFrame, pagecountDf:DataFrame): DataFrame = {
@@ -68,7 +71,7 @@ object PagecountProcessor {
     val pgInputRdd = files.mapValues(p => pgCountProcessor.session.sparkContext.textFile(p))
     
     
-    val pcDf = pgInputRdd.transform((d, p) => pgCountProcessor.parseLines(p, cfg.minDailyVisit(), d))
+    val pcDf = pgInputRdd.transform((d, p) => pgCountProcessor.parseLinesToDf(p, cfg.minDailyVisit(), d))
     
     if (cfg.pageDump.supplied) { 
       val pgDf = pgCountProcessor.getPageDataFrame(cfg.pageDump())  
