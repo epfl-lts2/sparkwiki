@@ -65,7 +65,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
     val rdd = p.parseLines(spark.sparkContext.parallelize(pageCount2, 2), 100, LocalDate.of(2018, 8, 1))
     val res1 = rdd.filter(f => f.title == "Anarchism").collect()
     val res2 = rdd.filter(f => f.title == "AfghanistanHistory").collect()
-    spark.createDataFrame(rdd).show()
+    //spark.createDataFrame(rdd).show()
     assert(res1.size == 5)
     res1.map(p => assert(p.namespace == WikipediaNamespace.Category && p.visits == 60))
     assert(res2.size == 10)
