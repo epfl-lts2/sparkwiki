@@ -147,7 +147,7 @@ class WikipediaCategoryLinkParser extends Serializable with WikipediaElementPars
   def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
 }
 
-class WikipediaPagecountParser extends Serializable with WikipediaElementParser[WikipediaPagecount] {
+class WikipediaPagecountParser(projectName:String) extends Serializable with WikipediaElementParser[WikipediaPagecount] {
   val pageCountRegex = """^([a-z]{2}\.[a-z]) (.*?) (\d+) ((?:[A-Z]\d+)+)$""".r
   val titleNsRegex = """(.*?):(.*?)""".r
   def parseLine(lineInput:String): List[WikipediaPagecount] = {
@@ -168,7 +168,7 @@ class WikipediaPagecountParser extends Serializable with WikipediaElementParser[
     })
   }
   
-  def filterElt(t: WikipediaPagecount):Boolean = t.project == "en.z" && 
+  def filterElt(t: WikipediaPagecount):Boolean = t.project == projectName && 
                                                               (t.namespace == WikipediaNamespace.Page || t.namespace == WikipediaNamespace.Category)
                                                               
   def getRDD(lines:RDD[String]):RDD[WikipediaPagecount] = {
@@ -187,4 +187,21 @@ class WikipediaHourlyVisitsParser extends Serializable {
         WikipediaHourlyVisit(LocalDateTime.of(date, LocalTime.of(hour, 0, 0)), m.group(2).toInt)
         })
   }
+}
+
+class WikipediaLangLinkParser(targetLang:String) extends Serializable with WikipediaElementParser[WikipediaLangLink] {
+  /*CREATE TABLE `langlinks` (
+  `ll_from` int(8) unsigned NOT NULL DEFAULT '0',
+  `ll_lang` varbinary(20) NOT NULL DEFAULT '',
+  `ll_title` varbinary(255) NOT NULL DEFAULT '*/
+  val langLinkRegex = """\((\d+),'(.*?)','(.*?)'\)""".r
+  def parseLine(lineInput:String):List[WikipediaLangLink] = {
+    val r = langLinkRegex.findAllIn(lineInput).matchData.toList
+    r.map(m => WikipediaLangLink(m.group(1).toInt, m.group(3), m.group(2))) 
+  }
+  def filterElt(t: WikipediaLangLink):Boolean = t.targetLang == targetLang
+  def getRDD(lines:RDD[String]):RDD[WikipediaLangLink] = {
+    lines.flatMap(l => parseLine(l)).filter(filterElt)
+  }
+  def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
 }

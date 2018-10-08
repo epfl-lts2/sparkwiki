@@ -47,3 +47,5 @@ case class WikipediaCategoryLink(from:Int, to:String, sortKey:String, timestamp:
 case class WikipediaPagecount(project:String, title:String, namespace:Int, dailyVisits:Int, hourlyVisits:String) extends WikipediaElement
 
 case class WikipediaHourlyVisit(time:LocalDateTime, visits:Int) extends WikipediaElement
+
+case class WikipediaLangLink(from:Int, targetTitle:String, targetLang:String) extends WikipediaElement

@@ -26,7 +26,7 @@ case class PageDailyVisit(time:Long, title:String, namespace:Int, visits:Int)
 class PagecountProcessor extends Serializable with CsvWriter {
   lazy val sconf = new SparkConf().setAppName("Wikipedia pagecount processor").setMaster("local[*]")
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
-  val parser = new WikipediaPagecountParser
+  val parser = new WikipediaPagecountParser("en.z")
   val hourParser = new WikipediaHourlyVisitsParser
   
   

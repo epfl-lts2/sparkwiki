@@ -77,7 +77,6 @@ object DumpParseMerge extends CsvWriter {
     
     val sconf = new SparkConf().setAppName("Wikipedia dump merge").setMaster("local[*]")
     val session = SparkSession.builder.config(sconf).getOrCreate()
-    val sctx = session.sparkContext
     
     val pages = session.read.parquet(conf.pagePath())
     
