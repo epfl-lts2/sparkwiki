@@ -3,10 +3,12 @@ package ch.epfl.lts2.wikipedia
 trait TestData {
   val sqlPage = "INSERT INTO `page` VALUES (10,0,'AccessibleComputing','',0,1,0,0.33167112649574004,'20180709171712','20180410125914',834079434,122,'wikitext',NULL),"+
                 "(12,14,'Anarchism','',5252,0,0,0.786172332974311,'20180730175243','20180730175339',851684166,188642,'wikitext',NULL),"+
-                "(13,0,'AfghanistanHistory','',5,1,0,0.0621502865684687,'20180726011011','20180410125914',783865149,90,'wikitext',NULL);  ";
+                "(13,0,'AfghanistanHistory','',5,1,0,0.0621502865684687,'20180726011011','20180410125914',783865149,90,'wikitext',NULL),"+
+                "(258,0,'AnchorageAlaska','',6,1,0,0.835559814083911,'20180801070358','20180410125916',783823547,85,'wikitext',NULL); ";
   val expectPage = "(10,0,'AccessibleComputing','',0,1,0,0.33167112649574004,'20180709171712','20180410125914',834079434,122,'wikitext',NULL),"+
                 "(12,14,'Anarchism','',5252,0,0,0.786172332974311,'20180730175243','20180730175339',851684166,188642,'wikitext',NULL),"+
-                "(13,0,'AfghanistanHistory','',5,1,0,0.0621502865684687,'20180726011011','20180410125914',783865149,90,'wikitext',NULL);"
+                "(13,0,'AfghanistanHistory','',5,1,0,0.0621502865684687,'20180726011011','20180410125914',783865149,90,'wikitext',NULL),"+
+                "(258,0,'AnchorageAlaska','',6,1,0,0.835559814083911,'20180801070358','20180410125916',783823547,85,'wikitext',NULL);"
     
   val sqlPageLong = "INSERT INTO `page` VALUES (45531,1,'Nutella','',16,0,0,0.991077012374138,'20180719182251','20180719183033',822603196,45774,'wikitext',NULL),"+
     "(45532,14,'Sicily','',52,0,0,0.225302804471276,'20180730215355','20180719183033',816829334,17508,'wikitext',NULL),"+
@@ -96,5 +98,6 @@ en.z 16th_meridian_east 7 C2G1H1J1L1P1
 en.z 16th_note 1 M1
 en.z 16th_parallel_north 17 B1C1E2I1M1N1O3P2Q1R1S1W2"""
 
-  val pageCount2 = List("en.z AfghanistanHistory 200 A20B20C20D20E20F20G20H20I20J20", "en.z Category:Anarchism 300 A60B60C60D60E60")
+  val pageCount2 = List("en.z AfghanistanHistory 200 A20B20C20D20E20F20G20H20I20J20", "en.z Category:Anarchism 300 A60B60C60D60E60", 
+                        "en.z AccessibleComputing 120 A30B30C30D30", "en.z AnchorageAlaska 3000 E600F600G600H600J600")
 }

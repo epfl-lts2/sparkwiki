@@ -15,11 +15,13 @@ class PagecountConf(args: Seq[String]) extends ScallopConf(args) {
   val startDate = opt[LocalDate](required = true, name="startDate")(singleArgConverter[LocalDate](LocalDate.parse(_)))
   val endDate = opt[LocalDate](required = true, name="endDate")(singleArgConverter[LocalDate](LocalDate.parse(_)))
   val pageDump = opt[String](name="pageDump")
-  val minDailyVisit = opt[Int](name="minDailyVisit", default=Some[Int](100))
+  val minDailyVisits = opt[Int](name="minDailyVisits", default=Some[Int](100))
+  val minDailVisitsHourSplit = opt[Int](name="minDailyVisitsHourSplit", default=Some[Int](10000))
   verify()
 }
 
 case class PageHourlyVisit(time:Long, title:String, namespace:Int, visits:Int)
+case class PageDailyVisit(time:Long, title:String, namespace:Int, visits:Int)
 
 class PagecountProcessor extends Serializable with CsvWriter {
   lazy val sconf = new SparkConf().setAppName("Wikipedia pagecount processor").setMaster("local[*]")
@@ -32,16 +34,22 @@ class PagecountProcessor extends Serializable with CsvWriter {
      Iterator.iterate(from)(_.plus(step)).takeWhile(!_.isAfter(to))
   }
   
-  def parseLinesToDf(input:RDD[String], minDailyVisits:Int, date:LocalDate):DataFrame = {    
-    session.createDataFrame(parseLines(input, minDailyVisits, date))
+  def parseLinesToDf(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):(DataFrame, DataFrame) = {    
+    val (rddD, rddH) = parseLines(input, minDailyVisits, minDailyVisitsHourSplit, date)
+    (session.createDataFrame(rddD), session.createDataFrame(rddH))
   }
   
-  def parseLines(input:RDD[String], minDailyVisits:Int, date:LocalDate):RDD[PageHourlyVisit] = {
+  def parseLines(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):(RDD[PageDailyVisit], RDD[PageHourlyVisit]) = {
     val rdd = parser.getRDD(input.filter(!_.startsWith("#")))
-                    .filter(w => w.dailyVisits > minDailyVisits)
+                    .filter(w => w.dailyVisits > minDailyVisits).cache()
+    val rddDaily = rdd.filter(w => w.dailyVisits < minDailyVisitsHourSplit)
+                      .map(p => PageDailyVisit(date.atTime(0, 0).toInstant(ZoneOffset.UTC).toEpochMilli, p.title, p.namespace, p.dailyVisits))
+    val rddHourly = rdd.filter(w => w.dailyVisits >= minDailyVisitsHourSplit)
                     .map(p => (p, hourParser.parseField(p.hourlyVisits, date)))
                     .flatMap{ case (k, v) => v.map((k, _)) }
-    rdd.map(p => PageHourlyVisit(p._2.time.toInstant(ZoneOffset.UTC).toEpochMilli, p._1.title, p._1.namespace, p._2.visits))
+                    .map(p => PageHourlyVisit(p._2.time.toInstant(ZoneOffset.UTC).toEpochMilli, p._1.title, p._1.namespace, p._2.visits))
+                    
+    (rddDaily, rddHourly)
   }
   
   def mergePagecount(pageDf:DataFrame, pagecountDf:DataFrame): DataFrame = {
@@ -71,14 +79,17 @@ object PagecountProcessor {
     val pgInputRdd = files.mapValues(p => pgCountProcessor.session.sparkContext.textFile(p))
     
     
-    val pcDf = pgInputRdd.transform((d, p) => pgCountProcessor.parseLinesToDf(p, cfg.minDailyVisit(), d))
+    val pcDf = pgInputRdd.transform((d, p) => pgCountProcessor.parseLinesToDf(p, cfg.minDailyVisits(), cfg.minDailVisitsHourSplit(), d))
     
     if (cfg.pageDump.supplied) { 
       val pgDf = pgCountProcessor.getPageDataFrame(cfg.pageDump())  
       
       // join page and page count
-      val pcDf_id = pcDf.mapValues(pcdf => pgCountProcessor.mergePagecount(pgDf, pcdf))
-      val dummy = pcDf_id.map(pc_id => pgCountProcessor.writeCsv(pc_id._2, Paths.get(cfg.outputPath(), pc_id._1.format(dateFormatter)).toString, true))
+      val pcDfDailyId = pcDf.mapValues(pcdf => pgCountProcessor.mergePagecount(pgDf, pcdf._1))
+      val pcDfHourlyId = pcDf.mapValues(pcdf => pgCountProcessor.mergePagecount(pgDf, pcdf._2))
+      
+      pcDfDailyId.map(pc_id => pgCountProcessor.writeCsv(pc_id._2, Paths.get(cfg.outputPath(), "daily", pc_id._1.format(dateFormatter)).toString, true))
+      val dummy = pcDfHourlyId.map(pc_id => pgCountProcessor.writeCsv(pc_id._2, Paths.get(cfg.outputPath(), "hourly", pc_id._1.format(dateFormatter)).toString, true))
     }
   }
 }

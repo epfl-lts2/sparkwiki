@@ -62,30 +62,36 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   
   it should "read correctly pagecounts" in {
     val p = new PagecountProcessor
-    val rdd = p.parseLines(spark.sparkContext.parallelize(pageCount2, 2), 100, LocalDate.of(2018, 8, 1))
-    val res1 = rdd.filter(f => f.title == "Anarchism").collect()
-    val res2 = rdd.filter(f => f.title == "AfghanistanHistory").collect()
+    val (rddDay, rddHour) = p.parseLines(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
+    val res1 = rddDay.filter(f => f.title == "Anarchism").collect()
+    val res2 = rddDay.filter(f => f.title == "AfghanistanHistory").collect()
+    val res3 = rddHour.filter(f => f.title == "AnchorageAlaska").collect()
     //spark.createDataFrame(rdd).show()
-    assert(res1.size == 5)
-    res1.map(p => assert(p.namespace == WikipediaNamespace.Category && p.visits == 60))
-    assert(res2.size == 10)
-    res2.map(p => assert(p.namespace == WikipediaNamespace.Page && p.visits == 20))
+    assert(res1.size == 1)
+    res1.map(p => assert(p.namespace == WikipediaNamespace.Category && p.visits == 300))
+    assert(res2.size == 1)
+    res2.map(p => assert(p.namespace == WikipediaNamespace.Page && p.visits == 200))
+    assert(res3.size == 5)
+    res3.map(p => assert(p.namespace == WikipediaNamespace.Page && p.visits == 600))
   }
   
   it should "merge page dataframe correctly" in {
     import spark.implicits._
     val p = new PagecountProcessor
-    val pcDf = p.parseLinesToDf(spark.sparkContext.parallelize(pageCount2, 2), 100, LocalDate.of(2018, 8, 1))
+    val (pcDfDay, pcDfHour) = p.parseLinesToDf(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
     val dp = new DumpParser
     
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 2), WikipediaDumpType.Page)
-    val res = p.mergePagecount(df, pcDf).as[MergedPagecount]
-    val res1 = res.filter(p => p.title == "Anarchism").collect()
-    val res2 = res.filter(p => p.title == "AfghanistanHistory").collect()
-    assert(res1.size == 5)
+    val resDay = p.mergePagecount(df, pcDfDay).as[MergedPagecount]
+    val resHour = p.mergePagecount(df, pcDfHour).as[MergedPagecount]
+    val res1 = resDay.filter(p => p.title == "Anarchism").collect()
+    val res2 = resDay.filter(p => p.title == "AfghanistanHistory").collect()
+    val res3 = resHour.filter(f => f.title == "AnchorageAlaska").collect()
+    assert(res1.size == 1)
     res1.map(p => assert(p.id == 12))
-    assert(res2.size == 10)
+    assert(res2.size == 1)
     res2.map(p => assert(p.id == 13))
-    
+    assert(res3.size == 5)
+    res3.map(p => assert(p.id == 258))
   }
 }

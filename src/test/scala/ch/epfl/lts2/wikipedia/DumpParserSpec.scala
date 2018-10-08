@@ -29,14 +29,15 @@ class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 2), WikipediaDumpType.Page)
     
     val res = df.as[WikipediaPage].collect().map(f => (f.id, f)).toMap
-    assert(res.keys.size == 3)
+    assert(res.keys.size == 4)
     val r10 = res(10)
     assert(r10.namespace == 0 && r10.title == "AccessibleComputing" && !r10.isNew && r10.isRedirect)
     val r12 = res(12)
     assert(r12.namespace == 14 & r12.title == "Anarchism" && !r12.isNew && !r12.isRedirect)
     val r13 = res(13)
     assert(r13.namespace == 0 && r13.title == "AfghanistanHistory" && !r13.isNew && r13.isRedirect)
-    
+    val r258 = res(258)
+    assert(r258.namespace == 0 && r258.title == "AnchorageAlaska" && !r258.isNew && r258.isRedirect)
   }
 
   
