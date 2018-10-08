@@ -74,4 +74,5 @@ and save the result to a csv, after resolving page ids if either a SQL page dump
 * `--startDate` first day to process, formatted as `yyyy-MM-dd`, e.g. 2018-08-03
 * `--endDate` last day to process,  formatted as `yyyy-MM-dd`
 * `--pageDump` path to a page SQL dump or a version processed by *DumpParser* and saved as parquet
-* `--minDailyVisits` minimum number of daily visit for a page to be considered
+* `--minDailyVisits` minimum number of daily visit for a page to be considered (default=100)
+* `--minDailyVisitsHourSplit` minimum number of daily visits to parse hourly visits record (default=10000)

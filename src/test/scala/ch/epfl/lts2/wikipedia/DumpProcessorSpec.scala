@@ -21,10 +21,10 @@ class DumpProcessorSpec extends FlatSpec with SparkSessionTestWrapper with TestD
     val dp = new DumpParser
     
     val pages = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 1), WikipediaDumpType.Page)
-    assert(pages.count == 3)
+    assert(pages.count == 4)
     val normal_pages = dproc.getPagesByNamespace(pages, WikipediaNamespace.Page)
     val category_pages = dproc.getPagesByNamespace(pages, WikipediaNamespace.Category)
-    assert(normal_pages.count == 2)
+    assert(normal_pages.count == 3)
     assert(category_pages.count == 1)
   }
   
