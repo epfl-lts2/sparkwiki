@@ -18,7 +18,7 @@ class DumpProcessorSpec extends FlatSpec with SparkSessionTestWrapper with TestD
   
   "DumpProcessor" should "filter pages according to namespace correctly" in {
     val dproc = new DumpProcessor
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
     
     val pages = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 1), WikipediaDumpType.Page)
     assert(pages.count == 4)
@@ -38,7 +38,7 @@ class DumpProcessorSpec extends FlatSpec with SparkSessionTestWrapper with TestD
   it should "join page and pagelinks correctly" in {
     import spark.implicits._
     val dproc = new DumpProcessor
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
   
   
     val pages = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 1), WikipediaDumpType.Page)
@@ -68,7 +68,7 @@ class DumpProcessorSpec extends FlatSpec with SparkSessionTestWrapper with TestD
   it should "join page and redirect correctly" in {
     import spark.implicits._
     val dproc = new DumpProcessor
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
   
   
     val pages = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 1), WikipediaDumpType.Page)
@@ -93,7 +93,7 @@ class DumpProcessorSpec extends FlatSpec with SparkSessionTestWrapper with TestD
   it should "join page and categorylinks correctly" in {
     import spark.implicits._
     val dproc = new DumpProcessor
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
   
   
     val pages = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 1), WikipediaDumpType.Page)

@@ -147,7 +147,7 @@ class WikipediaCategoryLinkParser extends Serializable with WikipediaElementPars
   def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
 }
 
-class WikipediaPagecountParser(projectName:String) extends Serializable with WikipediaElementParser[WikipediaPagecount] {
+class WikipediaPagecountParser(projectName:String = "en.z") extends Serializable with WikipediaElementParser[WikipediaPagecount] {
   val pageCountRegex = """^([a-z]{2}\.[a-z]) (.*?) (\d+) ((?:[A-Z]\d+)+)$""".r
   val titleNsRegex = """(.*?):(.*?)""".r
   def parseLine(lineInput:String): List[WikipediaPagecount] = {

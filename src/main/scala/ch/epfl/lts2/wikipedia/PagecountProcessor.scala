@@ -17,16 +17,17 @@ class PagecountConf(args: Seq[String]) extends ScallopConf(args) {
   val pageDump = opt[String](name="pageDump")
   val minDailyVisits = opt[Int](name="minDailyVisits", default=Some[Int](100))
   val minDailVisitsHourSplit = opt[Int](name="minDailyVisitsHourSplit", default=Some[Int](10000))
+  val projectName = opt[String](name="projectName", default=Some[String]("en.z"))
   verify()
 }
 
 case class PageHourlyVisit(time:Long, title:String, namespace:Int, visits:Int)
 case class PageDailyVisit(time:Long, title:String, namespace:Int, visits:Int)
 
-class PagecountProcessor extends Serializable with CsvWriter {
+class PagecountProcessor(projectName:String) extends Serializable with CsvWriter {
   lazy val sconf = new SparkConf().setAppName("Wikipedia pagecount processor").setMaster("local[*]")
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
-  val parser = new WikipediaPagecountParser("en.z")
+  val parser = new WikipediaPagecountParser(projectName)
   val hourParser = new WikipediaHourlyVisitsParser
   
   
@@ -59,7 +60,7 @@ class PagecountProcessor extends Serializable with CsvWriter {
   
   def getPageDataFrame(fileName:String):DataFrame = {
      if (fileName.endsWith("sql.bz2") || fileName.endsWith("sql.gz")) { // seems like we are reading a table dump 
-        val pageParser = new DumpParser
+        val pageParser = new DumpParser("en")
         pageParser.processFileToDf(session, fileName, WikipediaDumpType.Page).select("id", "namespace", "title")
       } else { // otherwise try to import from a parquet file
         session.read.parquet(fileName)
@@ -68,12 +69,12 @@ class PagecountProcessor extends Serializable with CsvWriter {
 }
 
 object PagecountProcessor {
-  val pgCountProcessor = new PagecountProcessor
+  
   val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
   
   def main(args:Array[String]) = {
     val cfg = new PagecountConf(args)
-    
+    val pgCountProcessor = new PagecountProcessor(cfg.projectName())  
     val range = pgCountProcessor.dateRange(cfg.startDate(), cfg.endDate(), Period.ofDays(1))
     val files = range.map(d => (d, Paths.get(cfg.basePath(), "pagecounts-" + d.format(dateFormatter) + ".bz2").toString)).toMap
     val pgInputRdd = files.mapValues(p => pgCountProcessor.session.sparkContext.textFile(p))

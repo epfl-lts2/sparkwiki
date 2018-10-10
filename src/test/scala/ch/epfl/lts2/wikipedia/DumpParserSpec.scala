@@ -11,7 +11,7 @@ class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData
   
   "DumpParser" should "split sql insert statements correctly" in {
   
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
     
     
     val res = dp.splitSqlInsertLine(sqlPage)
@@ -25,7 +25,7 @@ class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData
   
   it should "parse page insert statement correctly into dataframe" in {
     import spark.implicits._
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 2), WikipediaDumpType.Page)
     
     val res = df.as[WikipediaPage].collect().map(f => (f.id, f)).toMap
@@ -43,7 +43,7 @@ class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData
   
   it should "parse long page insert statement correctly into dataframe" in {
     import spark.implicits._
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPageLong), 2), WikipediaDumpType.Page)
     
     val res = df.as[WikipediaPage].collect().map(f => (f.id, f)).toMap
@@ -59,7 +59,7 @@ class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData
     
   it should "parse pagelinks insert statements correctly" in {
     import spark.implicits._
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPageLinks), 2), WikipediaDumpType.PageLinks)
     val res = df.as[WikipediaPageLink].collect().map(f => (f.from, f)).toMap
     
@@ -70,7 +70,7 @@ class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData
     
   it should "parse redirect insert statements correctly" in {
     import spark.implicits._
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlRedirect), 2), WikipediaDumpType.Redirect)
     val res = df.as[WikipediaRedirect].collect().map(f => (f.from, f)).toMap
     assert(res.keys.size == 11)
@@ -86,7 +86,7 @@ class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData
   
   it should "parse category insert statements correctly" in {
     import spark.implicits._
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlCategory), 2), WikipediaDumpType.Category)
     val res = df.as[WikipediaCategory].collect().map(f => (f.id, f)).toMap
     assert(res.keys.size == 17)
@@ -100,7 +100,7 @@ class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData
     
   it should "parse categorylinks insert statements correctly" in {
     import spark.implicits._
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlCatLink), 2), WikipediaDumpType.CategoryLinks)
     val res = df.as[WikipediaCategoryLink].collect().map(f => (f.from, f))
     assert(res.size == 7)

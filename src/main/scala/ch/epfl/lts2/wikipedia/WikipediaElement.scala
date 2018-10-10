@@ -13,6 +13,7 @@ object WikipediaDumpType extends Enumeration {
   val Redirect = Value("redirect")
   val Category = Value("category")
   val CategoryLinks = Value("categorylinks")
+  val LangLinks = Value("langlinks")
 }
 
 object WikipediaNamespace extends Enumeration {

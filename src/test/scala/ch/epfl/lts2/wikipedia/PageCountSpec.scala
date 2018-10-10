@@ -53,7 +53,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   }
   
   "PagecountProcessor" should "generate correct date ranges" in {
-    val p = new PagecountProcessor
+    val p = new PagecountProcessor("en.z")
     val range = p.dateRange(LocalDate.parse("2018-08-01"), LocalDate.parse("2018-08-10"), Period.ofDays(1))
     assert(range.size == 10)
     val r2 = p.dateRange(LocalDate.parse("2017-08-01"), LocalDate.parse("2017-09-01"), Period.ofDays(1))
@@ -61,7 +61,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   }
   
   it should "read correctly pagecounts" in {
-    val p = new PagecountProcessor
+    val p = new PagecountProcessor("en.z")
     val (rddDay, rddHour) = p.parseLines(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
     val res1 = rddDay.filter(f => f.title == "Anarchism").collect()
     val res2 = rddDay.filter(f => f.title == "AfghanistanHistory").collect()
@@ -77,9 +77,9 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   
   it should "merge page dataframe correctly" in {
     import spark.implicits._
-    val p = new PagecountProcessor
+    val p = new PagecountProcessor("en.z")
     val (pcDfDay, pcDfHour) = p.parseLinesToDf(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
-    val dp = new DumpParser
+    val dp = new DumpParser("en")
     
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 2), WikipediaDumpType.Page)
     val resDay = p.mergePagecount(df, pcDfDay).as[MergedPagecount]

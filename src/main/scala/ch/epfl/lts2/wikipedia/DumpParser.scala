@@ -16,11 +16,12 @@ class ParserConf(args: Seq[String]) extends ScallopConf(args) {
   val dumpFilePath = opt[String](required = true, name= "dumpFilePath")
   val dumpType = opt[String](required = true, name="dumpType")
   val outputPath = opt[String](required = true, name="outputPath")
+  val langFilter = opt[String](name="langFilter", default=Some("en"))
   val outputFormat = opt[String](name="outputFormat", default=Some("csv"))
   verify()
 }
 
-class DumpParser extends Serializable  with CsvWriter {
+class DumpParser(langFilter:String) extends Serializable  with CsvWriter {
   
   def splitSqlInsertLine(line: String):String = {
     line.split(" VALUES ")(1).trim
@@ -41,6 +42,7 @@ class DumpParser extends Serializable  with CsvWriter {
       case WikipediaDumpType.Redirect => new WikipediaRedirectParser
       case WikipediaDumpType.Category => new WikipediaCategoryParser
       case WikipediaDumpType.CategoryLinks => new WikipediaCategoryLinkParser
+      case WikipediaDumpType.LangLinks => new WikipediaLangLinkParser(langFilter)
     }
     
     parser.getDataFrame(session, records)
@@ -63,24 +65,25 @@ class DumpParser extends Serializable  with CsvWriter {
 
 object DumpParser 
 {
-  val dumpParser = new DumpParser
+  
   // main 
   def main(args:Array[String]) = 
   {
     val conf = new ParserConf(args) // TODO detect type from CREATE TABLE statement
+    val dumpParser = new DumpParser(conf.langFilter())
     println("Reading %s".format(conf.dumpFilePath()))
     val dumpType = conf.dumpType()
     val outputFormat = conf.outputFormat()
     val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
     val session = SparkSession.builder.config(sconf).getOrCreate()
-    assert(WikipediaNamespace.Page == 0)
-    assert(WikipediaNamespace.Category == 14)
+    
     val dumpEltType = dumpType match {
       case "page" => WikipediaDumpType.Page
       case "pagelinks" => WikipediaDumpType.PageLinks
       case "redirect" => WikipediaDumpType.Redirect
       case "category" => WikipediaDumpType.Category
       case "categorylinks" => WikipediaDumpType.CategoryLinks
+      case "langlinks" => WikipediaDumpType.LangLinks
     }
     dumpParser.process(session, conf.dumpFilePath(), dumpEltType, conf.outputPath(), conf.outputFormat())
 

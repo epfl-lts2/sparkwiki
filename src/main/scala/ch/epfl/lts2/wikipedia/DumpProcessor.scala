@@ -50,7 +50,7 @@ object DumpProcessor  {
   
   def main(args:Array[String]) = {
     val conf = new ProcessorConf(args)
-    val dumpParser = new DumpParser
+    val dumpParser = new DumpParser("en")
     
     
     val pageFile = Paths.get(conf.dumpPath(), conf.namePrefix() + "-page.sql.bz2").toString
