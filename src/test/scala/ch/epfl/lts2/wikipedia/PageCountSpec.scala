@@ -5,7 +5,7 @@ import java.time._
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession, Dataset}
 
-case class MergedPagecount (time:Long, title:String, namespace:Int, visits:Int, id:Int)
+case class MergedPagecount (title:String, namespace:Int, visits:List[Visit], id:Int)
 
 class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData {
   
@@ -62,36 +62,43 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   
   it should "read correctly pagecounts" in {
     val p = new PagecountProcessor
-    val (rddDay, rddHour) = p.parseLines(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
-    val res1 = rddDay.filter(f => f.title == "Anarchism").collect()
-    val res2 = rddDay.filter(f => f.title == "AfghanistanHistory").collect()
-    val res3 = rddHour.filter(f => f.title == "AnchorageAlaska").collect()
+    val rdd = p.parseLines(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
+    val refTime = 1533081600000L
+    val res1 = rdd.filter(f => f.title == "Anarchism").collect()
+    val res2 = rdd.filter(f => f.title == "AfghanistanHistory").collect()
+    val res3 = rdd.filter(f => f.title == "AnchorageAlaska").collect()
     //spark.createDataFrame(rdd).show()
     assert(res1.size == 1)
-    res1.map(p => assert(p.namespace == WikipediaNamespace.Category && p.visits == 300))
+    val ref1 = Visit(refTime, 300, "Day")
+    assert(res1(0).namespace == WikipediaNamespace.Category && res1(0).visits.size == 1 && res1(0).visits.contains(ref1))
     assert(res2.size == 1)
-    res2.map(p => assert(p.namespace == WikipediaNamespace.Page && p.visits == 200))
-    assert(res3.size == 5)
-    res3.map(p => assert(p.namespace == WikipediaNamespace.Page && p.visits == 600))
+    val ref2 = Visit(refTime, 200, "Day")
+    assert(res2(0).namespace == WikipediaNamespace.Page && res2(0).visits.size == 1 && res2(0).visits.contains(ref2))
+    assert(res3.size == 1)
+    assert(res3(0).namespace == WikipediaNamespace.Page && res3(0).visits.size == 5)
+    res3(0).visits.map(p => assert(p.count == 600 && p.timeResolution == "Hour"))
   }
   
   it should "merge page dataframe correctly" in {
     import spark.implicits._
     val p = new PagecountProcessor
-    val (pcDfDay, pcDfHour) = p.parseLinesToDf(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
+    val pcDf = p.parseLinesToDf(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
     val dp = new DumpParser
     
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 2), WikipediaDumpType.Page)
-    val resDay = p.mergePagecount(df, pcDfDay).as[MergedPagecount]
-    val resHour = p.mergePagecount(df, pcDfHour).as[MergedPagecount]
-    val res1 = resDay.filter(p => p.title == "Anarchism").collect()
-    val res2 = resDay.filter(p => p.title == "AfghanistanHistory").collect()
-    val res3 = resHour.filter(f => f.title == "AnchorageAlaska").collect()
+    val res = p.mergePagecount(df, pcDf).as[MergedPagecount] //FIXME
+    
+    val res1 = res.filter(p => p.title == "Anarchism").collect()
+    val res2 = res.filter(p => p.title == "AfghanistanHistory").collect()
+    val res3 = res.filter(f => f.title == "AnchorageAlaska").collect()
     assert(res1.size == 1)
-    res1.map(p => assert(p.id == 12))
+    assert(res1(0).id == 12)
+    
     assert(res2.size == 1)
-    res2.map(p => assert(p.id == 13))
-    assert(res3.size == 5)
-    res3.map(p => assert(p.id == 258))
+    assert(res2(0).id == 13)
+    
+    assert(res3.size == 1)
+    assert(res3(0).id == 258)
+    
   }
 }

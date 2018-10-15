@@ -7,6 +7,7 @@ import org.rogach.scallop._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession, Dataset}
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.functions._
 
 
 class PagecountConf(args: Seq[String]) extends ScallopConf(args) {
@@ -20,41 +21,41 @@ class PagecountConf(args: Seq[String]) extends ScallopConf(args) {
   verify()
 }
 
-case class PageHourlyVisit(time:Long, title:String, namespace:Int, visits:Int)
-case class PageDailyVisit(time:Long, title:String, namespace:Int, visits:Int)
 
-class PagecountProcessor extends Serializable with CsvWriter {
+case class Visit(time:Long, count:Int, timeResolution: String)
+case class PageVisits(title:String, namespace:Int, visits:List[Visit])
+
+class PagecountProcessor extends Serializable with JsonWriter {
   lazy val sconf = new SparkConf().setAppName("Wikipedia pagecount processor").setMaster("local[*]")
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
   val parser = new WikipediaPagecountParser
   val hourParser = new WikipediaHourlyVisitsParser
   
-  
   def dateRange(from:LocalDate, to:LocalDate, step:Period):Iterator[LocalDate] = {
      Iterator.iterate(from)(_.plus(step)).takeWhile(!_.isAfter(to))
   }
   
-  def parseLinesToDf(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):(DataFrame, DataFrame) = {    
-    val (rddD, rddH) = parseLines(input, minDailyVisits, minDailyVisitsHourSplit, date)
-    (session.createDataFrame(rddD), session.createDataFrame(rddH))
+  def parseLinesToDf(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):DataFrame = {    
+    val rdd = parseLines(input, minDailyVisits, minDailyVisitsHourSplit, date)
+    session.createDataFrame(rdd)
   }
   
-  def parseLines(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):(RDD[PageDailyVisit], RDD[PageHourlyVisit]) = {
-    val rdd = parser.getRDD(input.filter(!_.startsWith("#")))
-                    .filter(w => w.dailyVisits > minDailyVisits).cache()
-    val rddDaily = rdd.filter(w => w.dailyVisits < minDailyVisitsHourSplit)
-                      .map(p => PageDailyVisit(date.atTime(0, 0).toInstant(ZoneOffset.UTC).toEpochMilli, p.title, p.namespace, p.dailyVisits))
-    val rddHourly = rdd.filter(w => w.dailyVisits >= minDailyVisitsHourSplit)
-                    .map(p => (p, hourParser.parseField(p.hourlyVisits, date)))
-                    .flatMap{ case (k, v) => v.map((k, _)) }
-                    .map(p => PageHourlyVisit(p._2.time.toInstant(ZoneOffset.UTC).toEpochMilli, p._1.title, p._1.namespace, p._2.visits))
-                    
-    (rddDaily, rddHourly)
+  def getPageVisit(p:WikipediaPagecount, minDailyVisitsHourSplit:Int, date:LocalDate): List[Visit] = {
+    if (p.dailyVisits >= minDailyVisitsHourSplit) 
+      hourParser.parseField(p.hourlyVisits, date)
+                .map(h => Visit(h.time.toInstant(ZoneOffset.UTC).toEpochMilli, h.visits, "Hour"))
+    else List(Visit(date.atTime(0, 0).toInstant(ZoneOffset.UTC).toEpochMilli, p.dailyVisits, "Day"))  
   }
   
+  def parseLines(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):RDD[PageVisits] = {
+    parser.getRDD(input.filter(!_.startsWith("#")))
+                  .filter(w => w.dailyVisits > minDailyVisits)
+                  .map(p => PageVisits(p.title, p.namespace, getPageVisit(p, minDailyVisitsHourSplit, date))) 
+  }
+
   def mergePagecount(pageDf:DataFrame, pagecountDf:DataFrame): DataFrame = {
     pagecountDf.join(pageDf, Seq("title", "namespace"))
-               .select("time", "title", "namespace", "id", "visits")
+               .select("title", "namespace", "id", "visits")
   }
   
   def getPageDataFrame(fileName:String):DataFrame = {
@@ -70,8 +71,10 @@ class PagecountProcessor extends Serializable with CsvWriter {
 object PagecountProcessor {
   val pgCountProcessor = new PagecountProcessor
   val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+  val flatten = udf((xs: Seq[Seq[Visit]]) => xs.flatten) // helper function
   
   def main(args:Array[String]) = {
+    import pgCountProcessor.session.implicits._
     val cfg = new PagecountConf(args)
     
     val range = pgCountProcessor.dateRange(cfg.startDate(), cfg.endDate(), Period.ofDays(1))
@@ -79,17 +82,19 @@ object PagecountProcessor {
     val pgInputRdd = files.mapValues(p => pgCountProcessor.session.sparkContext.textFile(p))
     
     
-    val pcDf = pgInputRdd.transform((d, p) => pgCountProcessor.parseLinesToDf(p, cfg.minDailyVisits(), cfg.minDailVisitsHourSplit(), d))
+    val pcRdd = pgInputRdd.transform((d, p) => pgCountProcessor.parseLinesToDf(p, cfg.minDailyVisits(), cfg.minDailVisitsHourSplit(), d))
+    val dfVisits = pcRdd.values.reduce((p1, p2) => p1.union(p2)) // group all rdd's into one
     
     if (cfg.pageDump.supplied) { 
-      val pgDf = pgCountProcessor.getPageDataFrame(cfg.pageDump())  
-      
+      val pgDf = pgCountProcessor.getPageDataFrame(cfg.pageDump())
+                                 
       // join page and page count
-      val pcDfDailyId = pcDf.mapValues(pcdf => pgCountProcessor.mergePagecount(pgDf, pcdf._1))
-      val pcDfHourlyId = pcDf.mapValues(pcdf => pgCountProcessor.mergePagecount(pgDf, pcdf._2))
+      val pcDfId = pgCountProcessor.mergePagecount(pgDf, dfVisits)
+                       .groupBy("id")
+                       .agg(flatten(collect_list("visits")).alias("visits"))
       
-      pcDfDailyId.map(pc_id => pgCountProcessor.writeCsv(pc_id._2, Paths.get(cfg.outputPath(), "daily", pc_id._1.format(dateFormatter)).toString, true))
-      val dummy = pcDfHourlyId.map(pc_id => pgCountProcessor.writeCsv(pc_id._2, Paths.get(cfg.outputPath(), "hourly", pc_id._1.format(dateFormatter)).toString, true))
+      //pcDfId.show()
+      pgCountProcessor.writeJson(pcDfId, cfg.outputPath(), true)
     }
   }
 }
