@@ -28,7 +28,7 @@ class DumpParser extends Serializable  with CsvWriter {
     
   
   def writeParquet(df:DataFrame, outputPath: String) =  {
-    df.write.option("compression", "gzip").parquet(outputPath)
+    df.write.mode("overwrite").option("compression", "gzip").parquet(outputPath)
   }
   
   def processToDf(session: SparkSession, input:RDD[String], dumpType:WikipediaDumpType.Value):DataFrame = {
@@ -71,7 +71,7 @@ object DumpParser
     println("Reading %s".format(conf.dumpFilePath()))
     val dumpType = conf.dumpType()
     val outputFormat = conf.outputFormat()
-    val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
+    val sconf = new SparkConf().setAppName("Wikipedia dump parser")
     val session = SparkSession.builder.config(sconf).getOrCreate()
     assert(WikipediaNamespace.Page == 0)
     assert(WikipediaNamespace.Category == 14)

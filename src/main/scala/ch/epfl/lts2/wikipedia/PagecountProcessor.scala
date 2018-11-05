@@ -26,7 +26,7 @@ case class Visit(time:Long, count:Int, timeResolution: String)
 case class PageVisits(title:String, namespace:Int, visits:List[Visit])
 
 class PagecountProcessor extends Serializable with JsonWriter {
-  lazy val sconf = new SparkConf().setAppName("Wikipedia pagecount processor").setMaster("local[*]")
+  lazy val sconf = new SparkConf().setAppName("Wikipedia pagecount processor")
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
   val parser = new WikipediaPagecountParser
   val hourParser = new WikipediaHourlyVisitsParser

@@ -12,7 +12,7 @@ class ProcessorConf(args:Seq[String]) extends ScallopConf(args) {
 }
 
 class DumpProcessor extends Serializable {
-  lazy val sconf = new SparkConf().setAppName("Wikipedia dump processor").setMaster("local[*]")
+  lazy val sconf = new SparkConf().setAppName("Wikipedia dump processor")
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
   
   def mergePageLink(pageDf:DataFrame, pageLinkDf:DataFrame): DataFrame = {
