@@ -3,11 +3,13 @@ import java.nio.file.Paths
 import org.rogach.scallop._
 import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession, Dataset}
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.functions.lit
 
 class ProcessorConf(args:Seq[String]) extends ScallopConf(args) {
   val dumpPath = opt[String](required = true, name="dumpPath")
   val outputPath = opt[String](required = true, name="outputPath")
   val namePrefix = opt[String](required = true, name="namePrefix")
+  val outputFormat = opt[String](required = true, name = "outputFormat", default=Some("csv")) 
   verify()
 }
 
@@ -51,7 +53,7 @@ object DumpProcessor  {
   def main(args:Array[String]) = {
     val conf = new ProcessorConf(args)
     val dumpParser = new DumpParser
-    
+    val outputFormat = conf.outputFormat()
     
     val pageFile = Paths.get(conf.dumpPath(), conf.namePrefix() + "-page.sql.bz2").toString
     val pageOutput = Paths.get(conf.outputPath(), "page")
@@ -71,20 +73,53 @@ object DumpProcessor  {
     val redirectDf = dumpParser.processFileToDf(dp.session, redirectFile, WikipediaDumpType.Redirect)
     
     
+   
     val pagelinks_id = dp.mergePageLink(pageDf, pageLinksDf)
-    dumpParser.writeCsv(pagelinks_id, pageLinksOutput)
-    
-    val redirect_id = dp.mergeRedirect(pageDf, redirectDf)                          
-    dumpParser.writeCsv(redirect_id, redirectOutput)
-    
+    val redirect_id = dp.mergeRedirect(pageDf, redirectDf)  
     val cat_pages = dp.getPagesByNamespace(pageDf, WikipediaNamespace.Category)
     val catlinks_id = dp.mergeCategoryLinks(pageDf, cat_pages, categoryLinksDf)
-    dumpParser.writeCsv(catlinks_id, categoryLinksOutput)
-    dumpParser.writeCsv(cat_pages, pageOutput.resolve("category_pages").toString)
+    val normal_pages = dp.getPagesByNamespace(pageDf, WikipediaNamespace.Page)
     
-    val normal_pages = dp.getPagesByNamespace(pageDf, WikipediaNamespace.Page)    
-    dumpParser.writeCsv(normal_pages, pageOutput.resolve("normal_pages").toString)
+    outputFormat match {
+      case "parquet" => {
+        val edgesOutputPath = Paths.get(conf.outputPath(), "edges.p").toString
+        val verticesOutputPath = Paths.get(conf.outputPath(), "vertices.p").toString
+        val pagelinks_id_gf = pagelinks_id.select("from", "id")
+                              .withColumnRenamed("from", "src")
+                              .withColumnRenamed("id", "dst")
+                              .withColumn("linkType", lit("links_to"))
+        val redirect_id_gf = redirect_id.select("from", "id")
+                              .withColumnRenamed("from", "src")
+                              .withColumnRenamed("id", "dst")
+                              .withColumn("linkType", lit("redirects_to"))
+        val catlinks_id_gf = catlinks_id.select("from", "id")
+                              .withColumnRenamed("from", "src")
+                              .withColumnRenamed("id", "dst")
+                              .withColumn("linkType", lit("belongs_to"))
+                              
+        val edges_df = pagelinks_id_gf.union(redirect_id_gf).union(catlinks_id_gf)
+        edges_df.write.option("compression", "gzip").parquet(edgesOutputPath)
+        
+        val vertices_df = cat_pages.withColumn("pageType", lit("Category"))
+                                    .union(normal_pages.withColumn("pageType", lit("Page")))
+                                        
+        vertices_df.write.option("compression", "gzip").parquet(verticesOutputPath)
+      }
+      case _ => {
+        
+        dumpParser.writeCsv(pagelinks_id, pageLinksOutput)
     
+                                
+        dumpParser.writeCsv(redirect_id, redirectOutput)
+    
+        
+        dumpParser.writeCsv(catlinks_id, categoryLinksOutput)
+        dumpParser.writeCsv(cat_pages, pageOutput.resolve("category_pages").toString)
+    
+            
+        dumpParser.writeCsv(normal_pages, pageOutput.resolve("normal_pages").toString)
+      }
+    }
     
   }
 }
