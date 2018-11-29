@@ -88,22 +88,25 @@ object DumpProcessor  {
                               .withColumnRenamed("from", "src")
                               .withColumnRenamed("id", "dst")
                               .withColumn("linkType", lit("links_to"))
+        pagelinks_id_gf.write.option("compression", "gzip").parquet(edgesOutputPath)
+        
         val redirect_id_gf = redirect_id.select("from", "id")
                               .withColumnRenamed("from", "src")
                               .withColumnRenamed("id", "dst")
                               .withColumn("linkType", lit("redirects_to"))
+        redirect_id_gf.write.mode("append").option("compression", "gzip").parquet(edgesOutputPath)
+        
         val catlinks_id_gf = catlinks_id.select("from", "id")
                               .withColumnRenamed("from", "src")
                               .withColumnRenamed("id", "dst")
                               .withColumn("linkType", lit("belongs_to"))
-                              
-        val edges_df = pagelinks_id_gf.union(redirect_id_gf).union(catlinks_id_gf)
-        edges_df.write.option("compression", "gzip").parquet(edgesOutputPath)
+        catlinks_id_gf.write.mode("append").option("compression", "gzip").parquet(edgesOutputPath)                     
         
-        val vertices_df = cat_pages.withColumn("pageType", lit("Category"))
-                                    .union(normal_pages.withColumn("pageType", lit("Page")))
+        
+        
                                         
-        vertices_df.write.option("compression", "gzip").parquet(verticesOutputPath)
+        cat_pages.withColumn("pageType", lit("Category")).write.option("compression", "gzip").parquet(verticesOutputPath)
+        normal_pages.withColumn("pageType", lit("Page")).write.mode("append").option("compression", "gzip").parquet(verticesOutputPath)
       }
       case _ => {
         
