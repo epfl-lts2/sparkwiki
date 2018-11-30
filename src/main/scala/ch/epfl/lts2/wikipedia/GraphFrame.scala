@@ -12,7 +12,7 @@ class GraphFrameOpt(args: Seq[String]) extends ScallopConf(args) {
 }
 
 class GraphFrameFilter extends Serializable {
-  lazy val sconf = new SparkConf().setAppName("Wikipedia GraphFrame").setMaster("local[*]")
+  lazy val sconf = new SparkConf().setAppName("Wikipedia GraphFrame")
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
   
   def readDataFrame(fileName:String):DataFrame = {

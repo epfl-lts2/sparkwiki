@@ -71,7 +71,7 @@ object DumpParser
     println("Reading %s".format(conf.dumpFilePath()))
     val dumpType = conf.dumpType()
     val outputFormat = conf.outputFormat()
-    val sconf = new SparkConf().setAppName("Wikipedia dump parser").setMaster("local[*]")
+    val sconf = new SparkConf().setAppName("Wikipedia dump parser")
     val session = SparkSession.builder.config(sconf).getOrCreate()
     assert(WikipediaNamespace.Page == 0)
     assert(WikipediaNamespace.Category == 14)
