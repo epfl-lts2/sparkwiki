@@ -20,17 +20,13 @@ class ParserConf(args: Seq[String]) extends ScallopConf(args) {
   verify()
 }
 
-class DumpParser extends Serializable  with CsvWriter {
+class DumpParser extends Serializable  with CsvWriter with ParquetWriter {
   
   def splitSqlInsertLine(line: String):String = {
     line.split(" VALUES ")(1).trim
   }
     
-  
-  def writeParquet(df:DataFrame, outputPath: String) =  {
-    df.write.option("compression", "gzip").parquet(outputPath)
-  }
-  
+
   def processToDf(session: SparkSession, input:RDD[String], dumpType:WikipediaDumpType.Value):DataFrame = {
     
     val sqlLines = input.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(dumpType)))
