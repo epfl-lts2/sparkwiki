@@ -54,7 +54,7 @@ class DumpProcessor extends Serializable {
   
   def resolvePageRedirects(pgLinksIdDf:Dataset[MergedPageLink], redirectDf:Dataset[MergedRedirect]):DataFrame = {
     pgLinksIdDf.withColumn("inter", pgLinksIdDf.col("id"))
-               .join(redirectDf.withColumn("inter", redirectDf.col("from")).withColumnRenamed("from", "from_r").withColumnRenamed("to", "to_r"), Seq("inter"), "left")
+               .join(redirectDf.withColumn("inter", redirectDf.col("from")).withColumnRenamed("from", "from_r").withColumnRenamed("id", "to_r"), Seq("inter"), "left")
                .withColumn("dest", when(col("to_r").isNotNull, col("to_r")).otherwise(col("id")))
                .select("from", "dest")
   }
