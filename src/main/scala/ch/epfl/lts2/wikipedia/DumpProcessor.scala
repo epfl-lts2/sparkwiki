@@ -52,11 +52,21 @@ class DumpProcessor extends Serializable {
           .select("id", "title", "isRedirect", "isNew").as[WikipediaSimplePage]
   }
   
-  def resolvePageRedirects(pgLinksIdDf:Dataset[MergedPageLink], redirectDf:Dataset[MergedRedirect]):DataFrame = {
-    pgLinksIdDf.withColumn("inter", pgLinksIdDf.col("id"))
-               .join(redirectDf.withColumn("inter", redirectDf.col("from")).withColumnRenamed("from", "from_r").withColumnRenamed("id", "to_r"), Seq("inter"), "left")
-               .withColumn("dest", when(col("to_r").isNotNull, col("to_r")).otherwise(col("id")))
-               .select("from", "dest")
+  def resolvePageRedirects(pgLinksIdDf:Dataset[MergedPageLink], redirectDf:Dataset[MergedRedirect], pages:Dataset[WikipediaSimplePage]):DataFrame = {
+    import session.implicits._
+    val linksDf = pgLinksIdDf.withColumn("inter", pgLinksIdDf.col("id"))
+                   .join(redirectDf.withColumn("inter", redirectDf.col("from")).withColumnRenamed("from", "from_r").withColumnRenamed("id", "to_r"), Seq("inter"), "left")
+                   .withColumn("dest", when(col("to_r").isNotNull, col("to_r")).otherwise(col("id")))
+                   .select("from", "dest")
+                   .filter($"from" !== $"dest") // remove self-links
+                   .distinct // redirect removal will cause duplicates -> remove them
+                   
+    // some redirect pages have regular links -> remove them
+    linksDf.withColumn("id", linksDf.col("from"))
+           .join(pages, "id")
+           .filter($"isRedirect" === false)
+           .select("from", "dest")
+               
   }
                           
 }
@@ -90,19 +100,20 @@ object DumpProcessor  {
     
     
     val pagelinks_id = dp.mergePageLink(pageDf, pageLinksDf)
-    
+    val normal_pages = dp.getPagesByNamespace(pageDf, WikipediaNamespace.Page, false)
+    val cat_pages = dp.getPagesByNamespace(pageDf, WikipediaNamespace.Category, false)
     //dumpParser.writeCsv(pagelinks_id.toDF, pageLinksOutput)
     
     val redirect_id = dp.mergeRedirect(pageDf, redirectDf)                          
     //dumpParser.writeCsv(redirect_id.toDF, redirectOutput)
-    val pglinks_noredirect = dp.resolvePageRedirects(pagelinks_id, redirect_id)
+    val pglinks_noredirect = dp.resolvePageRedirects(pagelinks_id, redirect_id, normal_pages.union(cat_pages))
     dumpParser.writeCsv(pglinks_noredirect, pageLinksOutput)
-    val cat_pages = dp.getPagesByNamespace(pageDf, WikipediaNamespace.Category, false)
+   
     val catlinks_id = dp.mergeCategoryLinks(pageDf, cat_pages, categoryLinksDf)
     dumpParser.writeCsv(catlinks_id.toDF, categoryLinksOutput)
     dumpParser.writeCsv(cat_pages.toDF, pageOutput.resolve("category_pages").toString)
     
-    val normal_pages = dp.getPagesByNamespace(pageDf, WikipediaNamespace.Page, false)
+    
     dumpParser.writeCsv(normal_pages.toDF, pageOutput.resolve("normal_pages").toString)
     
     
