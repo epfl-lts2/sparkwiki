@@ -86,7 +86,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
     val dp = new DumpParser
     
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 2), WikipediaDumpType.Page)
-    val res = p.mergePagecount(df, pcDf).as[MergedPagecount] //FIXME
+    val res = p.mergePagecount(df.as[WikipediaPage], pcDf).as[MergedPagecount] //FIXME
     
     val res1 = res.filter(p => p.title == "Anarchism").collect()
     val res2 = res.filter(p => p.title == "AfghanistanHistory").collect()

@@ -18,6 +18,7 @@ class PagecountConf(args: Seq[String]) extends ScallopConf(args) {
   val pageDump = opt[String](name="pageDump")
   val minDailyVisits = opt[Int](name="minDailyVisits", default=Some[Int](100))
   val minDailVisitsHourSplit = opt[Int](name="minDailyVisitsHourSplit", default=Some[Int](10000))
+  val keepRedirects = opt[Boolean](name="keepRedirects", default=Some(true))
   verify()
 }
 
@@ -53,7 +54,7 @@ class PagecountProcessor extends Serializable with JsonWriter {
                   .map(p => PageVisits(p.title, p.namespace, getPageVisit(p, minDailyVisitsHourSplit, date))) 
   }
 
-  def mergePagecount(pageDf:DataFrame, pagecountDf:DataFrame): DataFrame = {
+  def mergePagecount(pageDf:Dataset[WikipediaPage], pagecountDf:DataFrame): DataFrame = {
     pagecountDf.join(pageDf, Seq("title", "namespace"))
                .select("title", "namespace", "id", "visits")
   }
@@ -87,6 +88,8 @@ object PagecountProcessor {
     
     if (cfg.pageDump.supplied) { 
       val pgDf = pgCountProcessor.getPageDataFrame(cfg.pageDump())
+                                 .as[WikipediaPage]
+                                 .filter(p => cfg.keepRedirects() || !p.isRedirect)
                                  
       // join page and page count
       val pcDfId = pgCountProcessor.mergePagecount(pgDf, dfVisits)
