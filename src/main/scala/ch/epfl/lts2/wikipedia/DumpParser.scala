@@ -12,7 +12,7 @@ import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession}
 import scala.RuntimeException
 import org.rogach.scallop._
 
-class ParserConf(args: Seq[String]) extends ScallopConf(args) {
+class ParserConf(args: Seq[String]) extends ScallopConf(args) with Serialization {
   val dumpFilePath = opt[String](required = true, name= "dumpFilePath")
   val dumpType = opt[String](required = true, name="dumpType")
   val outputPath = opt[String](required = true, name="outputPath")

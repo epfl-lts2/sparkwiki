@@ -28,7 +28,7 @@ processors in the system), e.g. unsing a command such as
 
 Every tool can be run via `spark-submit`, e.g.
 ```
-./spark-submit --class ch.epfl.lts2.wikipedia.[ToolNameHere]  --master 'local[*]' --executor-memory 4g --driver-memory 4g --packages org.rogach:scallop_2.11:3.1.3 ./sparkwiki/target/scala-2.11/sparkwiki_2.11-0.5.0.jar [ToolArgsHere]
+./spark-submit --class ch.epfl.lts2.wikipedia.[ToolNameHere]  --master 'local[*]' --executor-memory 4g --driver-memory 4g --packages org.rogach:scallop_2.11:3.1.5,com.datastax.spark:spark-cassandra-connector_2.11:2.4.0 ./sparkwiki/target/scala-2.11/sparkwiki_2.11-0.6.8.jar [ToolArgsHere]
 ```
 
 ### Build
@@ -66,13 +66,17 @@ and converts it to either a csv file, or a parquet file.
 This tool can be run using the class `ch.epfl.lts2.wikipedia.PagecountProcessor` as entry point. It will read a collection of *pagecounts* covering the period
 between arguments `startDate` and `endDate` (inclusive bounds), 
 filter the counts belonging to *en.z* (english wikipedia project) and having more daily visits than a threshold given by the `minDailyVisit` argument
-and save the result to a csv, after resolving page ids if either a SQL page dump or a processed SQL page dump (as parquet) is supplied via the `pageDump` argument.
+and save the result to a cassandra DB, after resolving page ids (either a SQL page dump or a processed SQL page dump (as parquet) must be supplied via the `pageDump` argument).
 
 **Arguments**:
 * `--basePath` directory containing pagecounts files
-* `--outputPath` output directory
 * `--startDate` first day to process, formatted as `yyyy-MM-dd`, e.g. 2018-08-03
 * `--endDate` last day to process,  formatted as `yyyy-MM-dd`
 * `--pageDump` path to a page SQL dump or a version processed by *DumpParser* and saved as parquet
 * `--minDailyVisits` minimum number of daily visit for a page to be considered (default=100)
 * `--minDailyVisitsHourSplit` minimum number of daily visits to parse hourly visits record (default=10000)
+* `--keepRedirects` if supplied, will process visits of pages marked as /redirect/
+* `--dbHost` name or IP address of the Cassandra server
+* `--dbPort` port number on which Cassandra server runs (default = 9042)
+* `--keySpace` keyspace for saving the output
+* `--table` destination table for output
