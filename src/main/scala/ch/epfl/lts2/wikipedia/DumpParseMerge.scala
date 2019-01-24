@@ -11,7 +11,7 @@ import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession}
 import scala.RuntimeException
 import org.rogach.scallop._
 
-class MergeConf(args: Seq[String]) extends ScallopConf(args) {
+class MergeConf(args: Seq[String]) extends ScallopConf(args) with Serialization {
   val pagePath = opt[String](name="pagePath", required=true)
   val pageLinksPath = opt[String](name="pageLinksPath")
   val redirectPath = opt[String](name="redirectPath")

@@ -4,9 +4,6 @@ import org.scalatest._
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession, Dataset}
 
-case class MergedPageLink(from:Int, id:Int, title:String, fromNamespace:Int, namespace:Int)
-case class MergedRedirect(from:Int, id:Int, title:String)
-case class MergedCatlink(from:Int, id:Int, title:String, ctype:String)
 
 class DumpProcessorSpec extends FlatSpec with SparkSessionTestWrapper with TestData {
   /*val sqlPage = "INSERT INTO `page` VALUES (10,0,'AccessibleComputing','',0,1,0,0.33167112649574004,'20180709171712','20180410125914',834079434,122,'wikitext',NULL),"+
@@ -19,11 +16,11 @@ class DumpProcessorSpec extends FlatSpec with SparkSessionTestWrapper with TestD
   "DumpProcessor" should "filter pages according to namespace correctly" in {
     val dproc = new DumpProcessor
     val dp = new DumpParser
-    
-    val pages = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 1), WikipediaDumpType.Page)
+    import spark.implicits._
+    val pages = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 1), WikipediaDumpType.Page).as[WikipediaPage]
     assert(pages.count == 4)
-    val normal_pages = dproc.getPagesByNamespace(pages, WikipediaNamespace.Page)
-    val category_pages = dproc.getPagesByNamespace(pages, WikipediaNamespace.Category)
+    val normal_pages = dproc.getPagesByNamespace(pages, WikipediaNamespace.Page, true)
+    val category_pages = dproc.getPagesByNamespace(pages, WikipediaNamespace.Category, true)
     assert(normal_pages.count == 3)
     assert(category_pages.count == 1)
   }
@@ -47,8 +44,8 @@ class DumpProcessorSpec extends FlatSpec with SparkSessionTestWrapper with TestD
     val pageLink = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPageLinkDummy), 1), WikipediaDumpType.PageLinks)
     assert(pageLink.count == 3)
     
-    val jdf = dproc.mergePageLink(pages, pageLink)
-    val jdp = jdf.as[MergedPageLink].collect().map(w => (w.from, w)).toMap
+    val jdf = dproc.mergePageLink(pages.as[WikipediaPage], pageLink.as[WikipediaPageLink])
+    val jdp = jdf.collect().map(w => (w.from, w)).toMap
     assert(jdp.keys.size == 2) // should ignore references to non-existing pages
     val pl1 = jdp(10)
     assert(pl1.fromNamespace == 0 && pl1.id == 12 && pl1.namespace == 14)
@@ -71,10 +68,10 @@ class DumpProcessorSpec extends FlatSpec with SparkSessionTestWrapper with TestD
     val dp = new DumpParser
   
   
-    val pages = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 1), WikipediaDumpType.Page)
-    val red = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlRedirectDummy), 1), WikipediaDumpType.Redirect)
+    val pages = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 1), WikipediaDumpType.Page).as[WikipediaPage]
+    val red = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlRedirectDummy), 1), WikipediaDumpType.Redirect).as[WikipediaRedirect]
     assert(red.count == 2)
-    val rds = dproc.mergeRedirect(pages, red).as[MergedRedirect].collect().map(w => (w.from, w)).toMap
+    val rds = dproc.mergeRedirect(pages, red).collect().map(w => (w.from, w)).toMap
     assert(rds.keys.size == 1)
     val r1 = rds(12)
     assert(r1.id == 10)
@@ -96,12 +93,12 @@ class DumpProcessorSpec extends FlatSpec with SparkSessionTestWrapper with TestD
     val dp = new DumpParser
   
   
-    val pages = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 1), WikipediaDumpType.Page)
-    val cl = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(catLinksSqlDummy), 1), WikipediaDumpType.CategoryLinks)
+    val pages = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 1), WikipediaDumpType.Page).as[WikipediaPage]
+    val cl = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(catLinksSqlDummy), 1), WikipediaDumpType.CategoryLinks).as[WikipediaCategoryLink]
     assert(cl.count == 2)
     
-    val cp = dproc.getPagesByNamespace(pages, WikipediaNamespace.Category)
-    val cldf = dproc.mergeCategoryLinks(pages, cp, cl).as[MergedCatlink].collect().map(w => (w.from, w)).toMap
+    val cp = dproc.getPagesByNamespace(pages, WikipediaNamespace.Category, true)
+    val cldf = dproc.mergeCategoryLinks(pages, cp, cl).collect().map(w => (w.from, w)).toMap
     assert(cldf.keys.size == 1)
     val cl1 = cldf(10)
     assert(cl1.id == 12 && cl1.title == "Anarchism" && cl1.ctype == "page")
