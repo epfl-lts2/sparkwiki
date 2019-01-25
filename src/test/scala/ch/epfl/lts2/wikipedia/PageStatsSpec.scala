@@ -3,8 +3,6 @@ package ch.epfl.lts2.wikipedia
 import org.scalatest._
 import org.scalactic._
 import java.time._
-import breeze.linalg._
-import breeze.stats._
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession, Dataset}
 

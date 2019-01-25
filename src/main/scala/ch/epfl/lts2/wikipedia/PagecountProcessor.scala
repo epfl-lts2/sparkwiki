@@ -96,7 +96,7 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int) extends Serializable
          .save()
   }
   
-  def checkDateBefore(current:Timestamp, newDate: LocalDate):Timestamp = {
+  def getEarliestDate(current:Timestamp, newDate: LocalDate):Timestamp = {
     val newTime = LocalDateTime.of(newDate, LocalTime.of(0, 0, 0))
     if (newTime.isBefore(current.toLocalDateTime))
       Timestamp.valueOf(newTime)
@@ -104,7 +104,7 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int) extends Serializable
       current
   }
   
-  def checkDateAfter(current:Timestamp, newDate: LocalDate):Timestamp = {
+  def getLatestDate(current:Timestamp, newDate: LocalDate):Timestamp = {
     val newTime = LocalDateTime.of(newDate.plusDays(1), LocalTime.of(0, 0, 0)) // check the day after at 0:00 to get integer number of days
     if (newTime.isAfter(current.toLocalDateTime))
       Timestamp.valueOf(newTime)
@@ -120,7 +120,7 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int) extends Serializable
            .load().as[PagecountMetadata]
            .first()
            
-    val updated = PagecountMetadata(checkDateBefore(current.start_time, startDate), checkDateAfter(current.end_time, endDate))
+    val updated = PagecountMetadata(getEarliestDate(current.start_time, startDate), getLatestDate(current.end_time, endDate))
     val updatedData = session.sparkContext.parallelize(Seq(updated)).toDF.as[PagecountMetadata]
     updatedData.write
               .format("org.apache.spark.sql.cassandra")

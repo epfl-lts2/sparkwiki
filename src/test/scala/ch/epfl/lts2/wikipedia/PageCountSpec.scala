@@ -2,13 +2,14 @@ package ch.epfl.lts2.wikipedia
 
 import org.scalatest._
 import java.time._
+import java.sql.Timestamp
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession, Dataset}
 
 case class MergedPagecount (title:String, namespace:Int, visits:List[Visit], id:Int)
 
 class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData {
-  
+    
   
    "WikipediaHourlyVisitParser" should "parse hourly visits fields correctly" in {
     val p = new WikipediaHourlyVisitsParser
@@ -58,6 +59,27 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
     assert(range.size == 10)
     val r2 = p.dateRange(LocalDate.parse("2017-08-01"), LocalDate.parse("2017-09-01"), Period.ofDays(1))
     assert(r2.size == 32)
+  }
+  
+  it should "update correctly pagecount metadata" in {
+    val p = new PagecountProcessor("127.0.0.1", 9042)
+    val d1 = LocalDate.of(2018,6,1)
+    val d2 = LocalDate.of(2018,5,1)
+    val d3 = LocalDate.of(2018,6,30)
+    val d3r = LocalDate.of(2018,7,1)
+    val midnight = LocalTime.MIDNIGHT
+    val tsref1 = Timestamp.valueOf(LocalDateTime.of(d1, midnight))
+    val tsref2 = Timestamp.valueOf(LocalDateTime.of(d2, midnight))
+    val tsref3 = Timestamp.valueOf(LocalDateTime.of(d3, midnight))
+    val tsref3r = Timestamp.valueOf(LocalDateTime.of(d3r, midnight))
+    val ts1 = p.getLatestDate(tsref1, d2)
+    assert(ts1 == tsref1)
+    val ts2 = p.getLatestDate(tsref1, d3)
+    assert(ts2 == tsref3r)
+    val ts3 = p.getEarliestDate(tsref1, d3)
+    assert(ts3 == tsref1)
+    val ts4 = p.getEarliestDate(tsref1, d2)
+    assert(ts4 == tsref2)
   }
   
   it should "read correctly pagecounts" in {
