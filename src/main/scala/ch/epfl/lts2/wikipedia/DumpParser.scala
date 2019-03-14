@@ -1,15 +1,7 @@
 package ch.epfl.lts2.wikipedia
-import java.io.File
-
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs._
+import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.{SparkConf, SparkContext}
-
-import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession}
-
-import scala.RuntimeException
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.rogach.scallop._
 
 class ParserConf(args: Seq[String]) extends ScallopConf(args) with Serialization {

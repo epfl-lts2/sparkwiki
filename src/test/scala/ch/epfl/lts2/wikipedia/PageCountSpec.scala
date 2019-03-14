@@ -59,6 +59,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
     assert(range.size == 10)
     val r2 = p.dateRange(LocalDate.parse("2017-08-01"), LocalDate.parse("2017-09-01"), Period.ofDays(1))
     assert(r2.size == 32)
+    assertThrows[IllegalArgumentException](p.dateRange(LocalDate.parse("2017-09-01"), LocalDate.parse("2017-01-01"), Period.ofDays(1)))
   }
   
   it should "update correctly pagecount metadata" in {
@@ -85,7 +86,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   it should "read correctly pagecounts" in {
     val p = new PagecountProcessor("127.0.0.1", 9042)
     val rdd = p.parseLines(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
-    val refTime = 1533081600000L
+    val refTime = Timestamp.valueOf(LocalDate.of(2018,8,1).atStartOfDay)
     val res1 = rdd.filter(f => f.title == "Anarchism").collect()
     val res2 = rdd.filter(f => f.title == "AfghanistanHistory").collect()
     val res3 = rdd.filter(f => f.title == "AnchorageAlaska").collect()

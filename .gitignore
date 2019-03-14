@@ -8,6 +8,8 @@ src_managed/
 project/boot/
 project/plugins/project/
 .history
-.cache
+.cache*
 .lib/
+.idea/
+.settings/
 /bin/
