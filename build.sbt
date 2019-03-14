@@ -18,5 +18,6 @@ lazy val root = (project in file(".")).
     libraryDependencies += "org.scalanlp" %% "breeze" % "0.13.2",
     libraryDependencies += "neo4j-contrib" % "neo4j-spark-connector" % "2.2.1-M5",
     libraryDependencies += "org.apache.spark" %% "spark-graphx" % "2.3.1",
-    libraryDependencies += "org.apache.hadoop" % "hadoop-client" % "2.8.4"
+    libraryDependencies += "org.apache.hadoop" % "hadoop-client" % "2.8.4",
+    libraryDependencies += "com.esotericsoftware" % "kryo" % "4.0.2"
 )
