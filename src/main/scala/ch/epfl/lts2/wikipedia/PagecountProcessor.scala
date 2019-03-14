@@ -31,7 +31,7 @@ class PagecountConf(args: Seq[String]) extends ScallopConf(args) with Serializat
 }
 
 
-case class Visit(time:Long, count:Int, timeResolution: String)
+case class Visit(time:Timestamp, count:Int, timeResolution: String)
 case class PageVisits(title:String, namespace:Int, visits:List[Visit])
 case class PageVisitsIdFull(title: String, namespace:Int, id:Int, visits:List[Visit])
 case class PageVisitsId(id:Int, visits:List[Visit])
@@ -47,6 +47,8 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int) extends Serializable
   val hourParser = new WikipediaHourlyVisitsParser
   
   def dateRange(from:LocalDate, to:LocalDate, step:Period):Iterator[LocalDate] = {
+     if (from.isAfter(to))
+       throw new IllegalArgumentException("start date must be before end date")
      Iterator.iterate(from)(_.plus(step)).takeWhile(!_.isAfter(to))
   }
   
@@ -59,8 +61,8 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int) extends Serializable
   def getPageVisit(p:WikipediaPagecount, minDailyVisitsHourSplit:Int, date:LocalDate): List[Visit] = {
     if (p.dailyVisits >= minDailyVisitsHourSplit) 
       hourParser.parseField(p.hourlyVisits, date)
-                .map(h => Visit(h.time.toInstant(ZoneOffset.UTC).toEpochMilli, h.visits, "Hour"))
-    else List(Visit(date.atTime(0, 0).toInstant(ZoneOffset.UTC).toEpochMilli, p.dailyVisits, "Day"))  
+                .map(h => Visit(Timestamp.valueOf(h.time), h.visits, "Hour"))
+    else List(Visit(Timestamp.valueOf(date.atStartOfDay), p.dailyVisits, "Day"))  
   }
   
   def parseLines(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):RDD[PageVisits] = {
@@ -97,7 +99,7 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int) extends Serializable
   }
   
   def getEarliestDate(current:Timestamp, newDate: LocalDate):Timestamp = {
-    val newTime = LocalDateTime.of(newDate, LocalTime.of(0, 0, 0))
+    val newTime = newDate.atStartOfDay
     if (newTime.isBefore(current.toLocalDateTime))
       Timestamp.valueOf(newTime)
     else
@@ -105,7 +107,7 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int) extends Serializable
   }
   
   def getLatestDate(current:Timestamp, newDate: LocalDate):Timestamp = {
-    val newTime = LocalDateTime.of(newDate.plusDays(1), LocalTime.of(0, 0, 0)) // check the day after at 0:00 to get integer number of days
+    val newTime = newDate.plusDays(1).atStartOfDay // check the day after at 0:00 to get integer number of days
     if (newTime.isAfter(current.toLocalDateTime))
       Timestamp.valueOf(newTime)
     else
@@ -159,7 +161,7 @@ object PagecountProcessor {
     val pcDfId = pgCountProcessor.mergePagecount(pgDf, dfVisits)
                      .groupBy("id")
                      .agg(flatten(collect_list("visits")).alias("visits")).as[PageVisitsId]
-    val pgVisitRows = pcDfId.flatMap(p => p.visits.map(v => PageVisitRow(p.id, Timestamp.from(Instant.ofEpochMilli(v.time)), v.count)))
+    val pgVisitRows = pcDfId.flatMap(p => p.visits.map(v => PageVisitRow(p.id, v.time, v.count)))
     //pcDfId.show()
     //pgCountProcessor.writeCsv(pgVisitRows.map(p => (p.page_id, p.visit_time.toString, p.count)).toDF(), cfg.outputPath())
     //pgCountProcessor.writeJson(pcDfId, cfg.outputPath(), true)

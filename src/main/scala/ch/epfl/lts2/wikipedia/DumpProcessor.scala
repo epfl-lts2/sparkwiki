@@ -1,9 +1,10 @@
 package ch.epfl.lts2.wikipedia
 import java.nio.file.Paths
-import org.rogach.scallop._
-import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession, Dataset}
-import org.apache.spark.{SparkConf, SparkContext}
+
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.rogach.scallop._
 
 
 class ProcessorConf(args:Seq[String]) extends ScallopConf(args) with Serialization {

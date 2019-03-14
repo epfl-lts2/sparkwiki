@@ -15,7 +15,6 @@ import breeze.stats._
 
 case class PageStatRow(page_id:Long, mean:Double, variance:Double)
 case class PageVisitElapsed(page_id:Long, elapsed_hours:Int, count:Double)
-case class PageVisitElapsedGroup(page_id:Long, visits:List[(Int, Double)])
 case class PagecountMetadata(start_time:Timestamp, end_time:Timestamp)
 
 class PageStatsConf(args:Seq[String]) extends ScallopConf(args) with Serialization {
@@ -28,31 +27,14 @@ class PageStatsConf(args:Seq[String]) extends ScallopConf(args) with Serializati
   verify()
 }
 
-class PageStats(val dbHost:String, val dbPort:Int) extends Serializable {
+class PageStats(val dbHost:String, val dbPort:Int) extends PageCountStatsLoader with Serializable {
   lazy val sconf = new SparkConf().setAppName("Wikipedia pagestats computation")
         .set("spark.cassandra.connection.host", dbHost) // TODO use auth 
         .set("spark.cassandra.connection.port", dbPort.toString)
        
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
-  val zipper = udf[Seq[(Int, Double)], Seq[Int], Seq[Double]](_.zip(_))
+  
 
-  
-  def loadMetadata(keySpace:String, tableMeta:String):PagecountMetadata = {
-    import session.implicits._
-    session.read
-           .format("org.apache.spark.sql.cassandra")
-           .options(Map("table"->tableMeta, "keyspace"->keySpace))
-           .load().as[PagecountMetadata]
-           .first()
-  }
-  
-  def getVisits(keySpace:String, tableVisits:String):Dataset[PageVisitRow] = {
-    import session.implicits._
-    session.read
-           .format("org.apache.spark.sql.cassandra")
-           .options(Map("table"->tableVisits, "keyspace"->keySpace))
-           .load().as[PageVisitRow]
-  }
   
   def computeStats(p:PageVisitElapsedGroup, totalHours:Int):PageStatRow = {
     val vb = new VectorBuilder(p.visits.map(f => f._1).toArray, p.visits.map(f => f._2).toArray, p.visits.size, totalHours)
@@ -73,12 +55,12 @@ class PageStats(val dbHost:String, val dbPort:Int) extends Serializable {
   
   def updateStats(keySpace:String, tableVisits:String, tableStats:String, tableMeta:String) = {
     import session.implicits._
-    val meta = loadMetadata(keySpace, tableMeta) 
+    val meta = loadMetadata(session, keySpace, tableMeta) 
     
     val visitsPeriod = Duration.between(meta.start_time.toInstant, meta.end_time.toInstant)
     val totalHours = visitsPeriod.toHours.toInt
     
-    val visitData = getVisits(keySpace, tableVisits).map(p => PageVisitElapsed(p.page_id, Duration.between(meta.start_time.toInstant, p.visit_time.toInstant).toHours.toInt, p.count))
+    val visitData = getVisits(session, keySpace, tableVisits).map(p => PageVisitElapsed(p.page_id, Duration.between(meta.start_time.toInstant, p.visit_time.toInstant).toHours.toInt, p.count))
     
     val visitGrp = visitData.groupBy("page_id")
                          .agg(collect_list("elapsed_hours") as "elapsed_hours", collect_list("count") as "count")
