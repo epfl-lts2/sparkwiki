@@ -80,3 +80,16 @@ and save the result to a cassandra DB, after resolving page ids (either a SQL pa
 * `--dbPort` port number on which Cassandra server runs (default = 9042)
 * `--keySpace` keyspace for saving the output
 * `--table` destination table for output
+
+### License
+
+Please cite [this](https://arxiv.org/abs/1903.08597) paper if you use the code or the pre-processed dataset.
+
+```
+@article{aspert2019graph,
+  title={A Graph-structured Dataset for Wikipedia Research},
+  author={Aspert, Nicolas and Miz, Volodymyr and Ricaud, Benjamin and Vandergheynst, Pierre},
+  conference={Companion Proceedings of the 2019 World Wide Web Conference},
+  year={2019}
+}
+```
