@@ -137,16 +137,17 @@ class PeakFinder(dbHost:String, dbPort:Int, keySpace: String, tableVisits:String
       val prunedGraph = GraphUtils.removeLowWeightEdges(trainedGraph, minWeight = 1.0)
 
       val cleanGraph = GraphUtils.removeSingletons(prunedGraph)
-      val CC = GraphUtils.getLargestConnectedComponent(cleanGraph)
+      val ccGraph = GraphUtils.getLargestConnectedComponent(cleanGraph)
+      val finalGraph = GraphUtils.toUndirected(ccGraph)
 
       val outputPath = cfgBase.outputPath()
       if (outputPath.startsWith("hdfs://")) {
         val tmpPath = outputPath.replaceFirst("hdfs://", "")
-        GraphUtils.saveGraphHdfs(CC, weighted=true, 
+        GraphUtils.saveGraphHdfs(finalGraph, weighted=true,
                                  fileName = Paths.get(tmpPath, "peaks_graph_" + dateFormatter.format(startDate) + "_" + dateFormatter.format(endDate) + ".gexf").toString)
       }
       else
-        GraphUtils.saveGraph(CC, weighted = true, 
+        GraphUtils.saveGraph(finalGraph, weighted = true,
                            fileName = Paths.get(outputPath, "peaks_graph_" + dateFormatter.format(startDate) + "_" + dateFormatter.format(endDate) + ".gexf").toString)
 
     }
