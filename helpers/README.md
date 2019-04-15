@@ -87,6 +87,7 @@ After that, once you restart Neo4J service, `wikipedia.db` database will be crea
 Start/Stop Neo4J service to initialize the `wikipedia.db`.
 
 `sudo neo4j start`
+
 `sudo neo4j stop`
 
 #### 3.4 Import the pre-processed files in Neo4J
@@ -211,8 +212,13 @@ spark-submit
 ```
 
 #### 4.9 Verify the import. Show the table with pagecounts
+
 `sudo service cassandra start`
+
 `cqlsh`
+
 `select * from wikipedia.page_visits limit 10;`
+
 `exit`
+
 `sudo service cassandra stop`
