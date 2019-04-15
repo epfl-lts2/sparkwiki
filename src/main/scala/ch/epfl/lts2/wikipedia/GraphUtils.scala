@@ -84,6 +84,15 @@ object GraphUtils {
     g.subgraph(vpred = (id, _) => lccVertices.contains(id))
   }
 
+  def toUndirected[VD: ClassTag](g: Graph[VD, Double]): Graph[VD, Double] = {
+    // gather edges (a,b) and (b,a) into a single one
+    val ec = g.edges.map(e => if (e.srcId < e.dstId) Edge(e.srcId, e.dstId, e.attr) else Edge(e.dstId, e.srcId, e.attr))
+                    .groupBy(e => (e.srcId, e.dstId))
+                    .mapValues(v => v.map(_.attr).sum)
+                    .map(k => Edge(k._1._1, k._1._2, k._2))
+    Graph(g.vertices, ec)
+  }
+
   /**
     * Converts GraphX graph to GEXF XML format. Returns unweighted graph.
     * The code is taken from "Spark GraphX in Action" book
