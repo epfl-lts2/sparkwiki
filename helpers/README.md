@@ -87,12 +87,11 @@ After that, once you restart Neo4J service, `wikipedia.db` database will be crea
 Start/Stop Neo4J service to initialize the `wikipedia.db`.
 
 `sudo neo4j start`
+
 `sudo neo4j stop`
 
 #### 3.4 Import the pre-processed files in Neo4J
 **Note:** Neo4J service should be down. Otherwise, the script will not work.
-
-**@TODO: add a link to the script and header files and replace the next step with it.**
 
 * Run the script below to import the pre-processed files into Neo4J. This step takes quite some time depending on your hardware (the amount of RAM and the type of the storage). For example, on a computer with 32 GB of RAM and an SSD (free space of around 10 GB required), it should take less than 30 minutes.
 
@@ -211,8 +210,13 @@ spark-submit
 ```
 
 #### 4.9 Verify the import. Show the table with pagecounts
+
 `sudo service cassandra start`
+
 `cqlsh`
+
 `select * from wikipedia.page_visits limit 10;`
+
 `exit`
+
 `sudo service cassandra stop`

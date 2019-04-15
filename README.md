@@ -15,6 +15,8 @@ wikipedia, namely
 
 ## Usage
 
+There is a detailed deployment tutorial available [here](https://github.com/epfl-lts2/sparkwiki/tree/master/helpers). Consise instructions are provided below.
+
 ### Pre-requisites
 You need:
 * an installation of [Apache Spark](https://spark.apache.org/)
