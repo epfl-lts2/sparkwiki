@@ -197,16 +197,12 @@ spark-submit
 --driver-memory 10g 
 --packages     org.rogach:scallop_2.11:3.1.5,
                com.datastax.spark:spark-cassandra-connector_2.11:2.4.0
-               <SPARKWIKI LOCATION>/sparkwiki/target/scala-2.11/sparkwiki_2.11-0.8.5.jar 
+               <SPARKWIKI LOCATION>/sparkwiki/target/scala-2.11/sparkwiki_2.11-0.8.5.jar
+--config <SPARKWIKI LOCATION>/sparkwiki/config/pagecount.conf
 --basePath /mnt/data/wikipedia/pagecounts/2018/2018-08
 --startDate 2018-08-01
 --endDate 2018-08-31
 --pageDump /mnt/data/wikipedia/page.parquet 
---minDailyVisits 100
---dbHost 127.0.0.1
---keySpace wikipedia
---table page_visits
---minDailyVisitsHourSplit 0
 ```
 
 #### 4.9 Verify the import. Show the table with pagecounts
