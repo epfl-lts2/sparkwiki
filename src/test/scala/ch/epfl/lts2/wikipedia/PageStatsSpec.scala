@@ -15,7 +15,7 @@ class PageStatsSpec extends FlatSpec with SparkSessionTestWrapper {
   implicit val doubleEq = TolerantNumerics.tolerantDoubleEquality(epsilon)
   
   "PageStats" should "compute mean and variance correctly" in {
-    val ps = new PageStats("localhost", 9042)
+    val ps = new PageStats("localhost", 9042, "user", "password")
     //case class PageVisitElapsedGroup(page_id:Long, visits:List[(Int, Double)])
     val p = PageVisitElapsedGroup(1, List((1, 1.0), (10, 1.0)))
     val size = 20
@@ -34,7 +34,9 @@ class PageStatsSpec extends FlatSpec with SparkSessionTestWrapper {
   }
   "PeakFinder" should "compute mean and variance correctly" in {
     import spark.implicits._
-    val pf = new PeakFinder("localhost", 9042, "keyspace", "tableVisits", "tableStats", "boltUrl", "neo4j", "neo4j")
+    val pf = new PeakFinder("localhost", 9042, "username", "password",
+                          "keyspace", "tableVisits", "tableStats", "tableMeta",
+                    "boltUrl", "neo4j", "neo4j")
     val startDate = LocalDate.parse("2018-08-01")
     val endDate = LocalDate.parse("2018-08-01")
     val p1 = PageVisitGroup(1, 

@@ -54,7 +54,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   }
   
   "PagecountProcessor" should "generate correct date ranges" in {
-    val p = new PagecountProcessor("127.0.0.1", 9042)
+    val p = new PagecountProcessor("127.0.0.1", 9042, "user", "password")
     val range = p.dateRange(LocalDate.parse("2018-08-01"), LocalDate.parse("2018-08-10"), Period.ofDays(1))
     assert(range.size == 10)
     val r2 = p.dateRange(LocalDate.parse("2017-08-01"), LocalDate.parse("2017-09-01"), Period.ofDays(1))
@@ -63,7 +63,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   }
   
   it should "update correctly pagecount metadata" in {
-    val p = new PagecountProcessor("127.0.0.1", 9042)
+    val p = new PagecountProcessor("127.0.0.1", 9042, "user", "password")
     val d1 = LocalDate.of(2018,6,1)
     val d2 = LocalDate.of(2018,5,1)
     val d3 = LocalDate.of(2018,6,30)
@@ -84,7 +84,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   }
   
   it should "read correctly pagecounts" in {
-    val p = new PagecountProcessor("127.0.0.1", 9042)
+    val p = new PagecountProcessor("127.0.0.1", 9042, "user", "password")
     val rdd = p.parseLines(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
     val refTime = Timestamp.valueOf(LocalDate.of(2018,8,1).atStartOfDay)
     val res1 = rdd.filter(f => f.title == "Anarchism").collect()
@@ -104,7 +104,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   
   it should "merge page dataframe correctly" in {
     import spark.implicits._
-    val p = new PagecountProcessor("127.0.0.1", 9042)
+    val p = new PagecountProcessor("127.0.0.1", 9042, "user", "password")
     val pcDf = p.parseLinesToDf(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
     val dp = new DumpParser
     
