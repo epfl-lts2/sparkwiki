@@ -85,10 +85,22 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   }
 
   def extractPeakActivityZscore(input: Dataset[PageVisitGroup], startDate:LocalDate, endDate:LocalDate, inputExtended: Dataset[PageVisitGroup], startDateExtend:LocalDate,
-                          lag: Int, threshold: Double, influence: Double): Dataset[Long] = {
+                          lag: Int, threshold: Double, influence: Double, activityThreshold:Int): Dataset[Long] = {
     import session.implicits._
     val startTime = startDateExtend.atStartOfDay
-    inputExtended.map(p => PageVisitElapsedGroup(p.page_id, p.visits.map(v => (Duration.between(startTime, v._1.toLocalDateTime).toHours.toInt, v._2.toDouble))))
+    val visitsPeriod = Duration.between(startTime, endDate.plusDays(1).atStartOfDay)
+    val totalHours = visitsPeriod.toHours.toInt
+    val extensionPeriod = Duration.between(startTime, startDate.atStartOfDay)
+    val extensionHours = extensionPeriod.toHours.toInt
+
+    val pageActivities = inputExtended.map(p => PageVisitElapsedGroup(p.page_id, p.visits.map(v => (Duration.between(startTime, v._1.toLocalDateTime).toHours.toInt, v._2.toDouble))))
+                                      .map(p => (p.page_id, new VectorBuilder(p.visits.map(f => f._1).toArray, p.visits.map(f => f._2).toArray, p.visits.size, totalHours).toDenseVector))
+                                      .map(p => (p._1, TimeSeriesUtils.smoothedZScore(p._2, lag, threshold, influence)))
+                                      .map(p => (p._1, p._2.slice(extensionHours, p._2.length - 1)))// remove extension from time series
+
+     pageActivities.map(p => (p._1, p._2.count(_ > 0)))
+       .filter(p => p._2 > activityThreshold)
+       .map(_._1).distinct
   }
   
   def extractActiveSubGraph(activeNodes:Dataset[Long]):Graph[String, Double] = {
