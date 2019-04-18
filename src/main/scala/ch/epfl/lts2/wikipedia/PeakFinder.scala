@@ -142,7 +142,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
                               cfg.getString("neo4j.bolt.url"), cfg.getString("neo4j.user"), cfg.getString("neo4j.password"))
       val startDate = LocalDate.parse(cfg.getString("peakfinder.startDate"))
       val endDate = LocalDate.parse(cfg.getString("peakfinder.endDate"))
-      val activityZscore = cfg.getBoolean("peakfinder.activityzscore")
+      val activityZscore = cfg.getBoolean("peakfinder.activityZScore")
       if (startDate.isAfter(endDate))
          throw new IllegalArgumentException("Start date is after end date")
 
@@ -157,7 +157,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
                                                cfg.getDouble("peakfinder.burstRate"), cfg.getInt("peakfinder.burstCount"))
                         else pf.extractPeakActivityZscore(filteredTimeSeries, startDate, endDate, extendedTimeSeries, startDateExtend,
                                                           cfg.getInt("peakfinder.zscore.lag"), cfg.getDouble("peakfinder.zscore.influence"),
-                                                          cfg.getDouble("peakfinder.zscore.threshold"), cfg.getInt("peakfinder.zscore.activitythreshold"))
+                                                          cfg.getDouble("peakfinder.zscore.threshold"), cfg.getInt("peakfinder.zscore.activityThreshold"))
 
       val activeTimeSeries = pf.getActiveTimeSeries(filteredTimeSeries, activePages)//.cache()
       
