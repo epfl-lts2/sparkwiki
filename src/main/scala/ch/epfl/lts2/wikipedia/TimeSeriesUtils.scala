@@ -14,13 +14,13 @@ object TimeSeriesUtils {
     * @param influence - The influence (between 0 and 1) of new signals on the mean and standard deviation (how much a peak (or signal) should affect other values near it)
     * @return - The calculated averages (avgFilter) and deviations (stdFilter), and the signals (signals)
     */
-  def smoothedZScore(y: DenseVector[Double], lag: Int, threshold: Double, influence: Double): Array[Int] = {
+  def smoothedZScore(y: Array[Double], lag: Int, threshold: Double, influence: Double): Array[Int] = {
 
     // the results (peaks, 1 or -1) of our algorithm
     val signals = DenseVector.zeros[Int](y.length)
 
     // filter out the signals (peaks) from our original list (using influence arg)
-    val filteredY = y.copy
+    val filteredY = DenseVector(y)
 
     // the current average of the rolling window
     val avgFilter = DenseVector.zeros[Double](y.length)
@@ -38,7 +38,7 @@ object TimeSeriesUtils {
     stdFilter(lag - 1) = m.stdDev // getStandardDeviation() uses sample variance (not what we want)
 
     // loop input starting at end of rolling window
-    y.data.zipWithIndex.slice(lag, y.length - 1).foreach {
+    y.zipWithIndex.slice(lag, y.length - 1).foreach {
       case (s: Double, i: Int) =>
         // if the distance between the current value and average is enough standard deviations (threshold) away
         if (Math.abs(s - avgFilter(i - 1)) > threshold * stdFilter(i - 1)) {
