@@ -133,7 +133,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     def main(args:Array[String]) = {
       val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
       val cfgBase = new ConfigFileOutputPathOpt(args)
-      val cfgDefault = ConfigFactory.parseString("cassandra.db.port=9042,peakfinder.useTableStats=false")
+      val cfgDefault = ConfigFactory.parseString("cassandra.db.port=9042,peakfinder.useTableStats=false,peakfinder.activityzscore=false")
       val cfg = ConfigFactory.parseFile(new File(cfgBase.cfgFile())).withFallback(cfgDefault)
       val pf = new PeakFinder(cfg.getString("cassandra.db.host"), cfg.getInt("cassandra.db.port"),
                               cfg.getString("cassandra.db.username"), cfg.getString("cassandra.db.password"),
@@ -142,6 +142,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
                               cfg.getString("neo4j.bolt.url"), cfg.getString("neo4j.user"), cfg.getString("neo4j.password"))
       val startDate = LocalDate.parse(cfg.getString("peakfinder.startDate"))
       val endDate = LocalDate.parse(cfg.getString("peakfinder.endDate"))
+      val activityZscore = cfg.getBoolean("peakfinder.activityzscore")
       if (startDate.isAfter(endDate))
          throw new IllegalArgumentException("Start date is after end date")
 
@@ -151,9 +152,13 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
       val extendedTimeSeries = pf.getVisitsTimeSeriesGroup(startDateExtend, endDate)
       val filteredTimeSeries = pf.getVisitsTimeSeriesGroup(startDate, endDate)
 
-      val activePages = pf.extractPeakActivity(filteredTimeSeries, startDate, endDate,
+      val activePages = if (!activityZscore)  pf.extractPeakActivity(filteredTimeSeries, startDate, endDate,
                                                extendedTimeSeries, startDateExtend,
                                                cfg.getDouble("peakfinder.burstRate"), cfg.getInt("peakfinder.burstCount"))
+                        else pf.extractPeakActivityZscore(filteredTimeSeries, startDate, endDate, extendedTimeSeries, startDateExtend,
+                                                          cfg.getInt("peakfinder.zscore.lag"), cfg.getDouble("peakfinder.zscore.influence"),
+                                                          cfg.getDouble("peakfinder.zscore.threshold"), cfg.getInt("peakfinder.zscore.activitythreshold"))
+
       val activeTimeSeries = pf.getActiveTimeSeries(filteredTimeSeries, activePages)//.cache()
       
       
