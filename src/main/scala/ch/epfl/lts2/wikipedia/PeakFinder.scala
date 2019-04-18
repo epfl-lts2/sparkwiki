@@ -83,6 +83,12 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
             .map(p => p._1.page_id)
             .distinct
   }
+
+  def extractPeakActivityZscore(input: Dataset[PageVisitGroup], startDate:LocalDate, endDate:LocalDate, inputExtended: Dataset[PageVisitGroup], startDateExtend:LocalDate,
+                          lag: Int, threshold: Double, influence: Double): Dataset[Long] = {
+    import session.implicits._
+
+  }
   
   def extractActiveSubGraph(activeNodes:Dataset[Long]):Graph[String, Double] = {
     // setup neo4j connection
@@ -95,8 +101,8 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     val graph:Graph[String,String] = neo.nodes(nodesQuery, Map("nodelist" -> nodeList))
                                         .rels(relsQuery, Map("nodelist" -> nodeList))
                                         .loadGraph     
-    graph.mapEdges(e => 1.0) // TODO use a tuple to keep track of relationship type
-         .mapVertices((id, title) => xml.Utility.escape(title)) // escape special chars for xml/gexf output
+    graph.mapEdges(_ => 1.0) // TODO use a tuple to keep track of relationship type
+         .mapVertices((_, title) => xml.Utility.escape(title)) // escape special chars for xml/gexf output
   }
   
   
