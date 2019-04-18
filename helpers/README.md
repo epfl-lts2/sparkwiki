@@ -155,12 +155,20 @@ The query below will create a keyspace for a single-node environment.
 
 If you want to configure a multi-node environment, read more about replication strategies [here](https://docs.datastax.com/en/cql/3.3/cql/cql_reference/cqlCreateKeyspace.html).
 
-#### 4.5 Create table to import pagecounts
-`CREATE TABLE wikipedia.page_visits (
+#### 4.5 Create tables to import pagecounts
+`
+CREATE TABLE wikipedia.page_visits (
     page_id bigint,
     visit_time timestamp,
     count int,
     PRIMARY KEY (page_id, visit_time));
+`
+
+`
+CREATE TABLE wikipedia.pagecount_metadata (
+    start_time timestamp,
+    end_time timestamp,
+    PRIMARY KEY (start_time, end_time));
 `
 #### 4.6 Exit `cqlsh`
 
