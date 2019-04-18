@@ -1,9 +1,16 @@
 package ch.epfl.lts2.wikipedia
 
-import org.apache.spark.sql.{SQLContext, Row, SparkSession, Dataset}
+import org.apache.spark.sql.{Dataset, Row, SQLContext, SparkSession}
 import java.time._
+import java.time.format.DateTimeFormatter
 import java.sql.Timestamp
+import com.google.common.collect._
+
+import com.google.common.collect.RangeSet
 import org.apache.spark.sql.functions._
+
+class UnavailableVisitDataException(message:String) extends Exception(message)
+
 trait PageCountStatsLoader {
   val zipper = udf[Seq[(Timestamp, Int)], Seq[Timestamp], Seq[Int]](_.zip(_))
   def getVisits(session:SparkSession, keySpace:String, tableVisits:String):Dataset[PageVisitRow] = {
@@ -14,17 +21,18 @@ trait PageCountStatsLoader {
            .load().as[PageVisitRow]
   }
   
-  def getVisitsPeriod(session:SparkSession, keySpace:String, tableVisits:String, startDate:LocalDate, endDate:LocalDate):Dataset[PageVisitRow] = {
-    import session.implicits._
+  def getVisitsPeriod(session:SparkSession, keySpace:String, tableVisits:String, tableMeta:String, startDate:LocalDate, endDate:LocalDate):Dataset[PageVisitRow] = {
     val startTime = Timestamp.valueOf(startDate.atStartOfDay.minusNanos(1))
     val endTime = Timestamp.valueOf(endDate.plusDays(1).atStartOfDay.minusNanos(1))
+    if (!checkVisitsDataAvailable(session, keySpace, tableMeta, startDate, endDate))
+      throw new UnavailableVisitDataException("Missing visit data for period" + startDate.format(DateTimeFormatter.ISO_LOCAL_DATE) + " - " + endDate.format(DateTimeFormatter.ISO_LOCAL_DATE))
     getVisits(session, keySpace, tableVisits).filter(p => p.visit_time.after(startTime) && p.visit_time.before(endTime))
   }
   
-  def getVisitsTimeSeriesGroup(session:SparkSession, keySpace:String, tableVisits:String, startDate:LocalDate, endDate:LocalDate):Dataset[PageVisitGroup] = {
+  def getVisitsTimeSeriesGroup(session:SparkSession, keySpace:String, tableVisits:String, tableMeta:String, startDate:LocalDate, endDate:LocalDate):Dataset[PageVisitGroup] = {
     import session.implicits._
     
-    val input = getVisitsPeriod(session, keySpace, tableVisits, startDate, endDate)
+    val input = getVisitsPeriod(session, keySpace, tableVisits, tableMeta, startDate, endDate)
     input.groupBy("page_id")
          .agg(collect_list("visit_time") as "visit_time", collect_list("count") as "count")
          .withColumn("visits", zipper(col("visit_time"), col("count")))
@@ -42,14 +50,28 @@ trait PageCountStatsLoader {
   }
   
   
-  def loadMetadata(session:SparkSession, keySpace:String, tableMeta:String):PagecountMetadata = {
+  def loadMetadata(session:SparkSession, keySpace:String, tableMeta:String):Dataset[PagecountMetadata] = {
     import session.implicits._
     session.read
            .format("org.apache.spark.sql.cassandra")
            .options(Map("table"->tableMeta, "keyspace"->keySpace))
            .load().as[PagecountMetadata]
-           .first()
+
   }
 
+  def checkDateRange(visitsMeta:Array[PagecountMetadata], startDate:LocalDate, endDate:LocalDate):Boolean = {
+    val dateDomain = new DiscreteDomainLocalDate
+    val range = Range.closed(startDate, endDate)
+    val rangesMeta = visitsMeta.map(m => Range.closed(m.start_time.toLocalDateTime.toLocalDate, m.end_time.toLocalDateTime.toLocalDate))
+    val rs = rangesMeta.foldLeft(TreeRangeSet.create.asInstanceOf[RangeSet[LocalDate]])((acc, r) => {
+      acc.add(r.canonical(dateDomain))
+      acc
+    })
+    rs.encloses(range)
+  }
+  def checkVisitsDataAvailable(session:SparkSession, keySpace:String, tableMeta:String, startDate:LocalDate, endDate:LocalDate):Boolean ={
+    val visitsMeta = loadMetadata(session, keySpace, tableMeta).collect()
+    checkDateRange(visitsMeta, startDate, endDate)
+  }
   
 }

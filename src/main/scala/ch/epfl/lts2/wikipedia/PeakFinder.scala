@@ -1,31 +1,31 @@
 package ch.epfl.lts2.wikipedia
 
-import java.time._
 import java.io.File
 import java.nio.file.Paths
 import java.sql.Timestamp
+import java.time._
 import java.time.format.DateTimeFormatter
-import org.apache.spark.sql.{ SparkSession, Dataset}
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.graphx._
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.cassandra
-import com.datastax.spark.connector._
-import scala.math._
 import breeze.linalg._
 import breeze.stats._
-import org.neo4j.spark._
 import com.typesafe.config.ConfigFactory
+import org.apache.spark.SparkConf
+import org.apache.spark.graphx._
+import org.apache.spark.sql.{Dataset, SparkSession}
+import org.neo4j.spark._
 
 case class PageRowThreshold(page_id:Long, threshold: Double)
 case class PageVisitThrGroup(page_id:Long, threshold:Double, visits:List[(Timestamp, Int)])
 case class PageVisitGroup(page_id:Long, visits:List[(Timestamp, Int)])
 case class PageVisitElapsedGroup(page_id:Long, visits:List[(Int,Double)])
 
-class PeakFinder(dbHost:String, dbPort:Int, keySpace: String, tableVisits:String, tableStats:String, boltUrl:String, neo4jUser:String, neo4jPass:String) extends PageCountStatsLoader with Serializable {
+class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String,
+                 keySpace: String, tableVisits:String, tableStats:String, tableMeta:String,
+                 boltUrl:String, neo4jUser:String, neo4jPass:String) extends PageCountStatsLoader with Serializable {
   lazy val sparkConfig: SparkConf = new SparkConf().setAppName("Wikipedia activity detector")
-        .set("spark.cassandra.connection.host", dbHost) // TODO use auth
+        .set("spark.cassandra.connection.host", dbHost)
         .set("spark.cassandra.connection.port", dbPort.toString)
+        .set("spark.cassandra.auth.username", dbUsername)
+        .set("spark.cassandra.auth.password", dbPassword)
         .set("spark.neo4j.bolt.url", boltUrl)
         .set("spark.neo4j.bolt.user", neo4jUser)
         .set("spark.neo4j.bolt.password", neo4jPass)
@@ -67,10 +67,12 @@ class PeakFinder(dbHost:String, dbPort:Int, keySpace: String, tableVisits:String
          .map(p => PageStatRow(p._1, p._2.mean, p._2.variance))    
   }
   
-  def extractPeakActivity(input: Dataset[PageVisitGroup], startDate:LocalDate, endDate:LocalDate, burstRate:Int, burstCount:Int, fromTable:Boolean):Dataset[Long] = {
+  def extractPeakActivity(input: Dataset[PageVisitGroup], startDate:LocalDate, endDate:LocalDate, inputExtended: Dataset[PageVisitGroup], startDateExtend:LocalDate,
+                          burstRate:Double, burstCount:Int):Dataset[Long] = {
     import session.implicits._
-    val pageStats = if (fromTable) getStatsFromTable(session, keySpace, tableStats) else getStats(input, startDate, endDate) 
-    val pageThr = getStatsThreshold(pageStats, burstRate.toDouble)
+
+    val pageStats = getStats(inputExtended, startDateExtend, endDate)
+    val pageThr = getStatsThreshold(pageStats, burstRate)
     
     val inputGrp = input.join(pageThr, "page_id")
                         .as[PageVisitThrGroup]
@@ -98,7 +100,7 @@ class PeakFinder(dbHost:String, dbPort:Int, keySpace: String, tableVisits:String
   }
   
   
-  def getVisitsTimeSeriesGroup(startDate:LocalDate, endDate:LocalDate):Dataset[PageVisitGroup] = getVisitsTimeSeriesGroup(session, keySpace, tableVisits, startDate, endDate)
+  def getVisitsTimeSeriesGroup(startDate:LocalDate, endDate:LocalDate):Dataset[PageVisitGroup] = getVisitsTimeSeriesGroup(session, keySpace, tableVisits, tableMeta, startDate, endDate)
   def getActiveTimeSeries(timeSeries:Dataset[PageVisitGroup], activeNodes:Dataset[Long]):Dataset[(Long, List[(Timestamp, Int)])] = {
     import session.implicits._
     timeSeries.join(activeNodes.toDF("page_id"), "page_id").as[PageVisitGroup].map(p => (p.page_id, p.visits))
@@ -114,17 +116,25 @@ class PeakFinder(dbHost:String, dbPort:Int, keySpace: String, tableVisits:String
       val cfgBase = new ConfigFileOutputPathOpt(args)
       val cfgDefault = ConfigFactory.parseString("cassandra.db.port=9042,peakfinder.useTableStats=false")
       val cfg = ConfigFactory.parseFile(new File(cfgBase.cfgFile())).withFallback(cfgDefault)
-      val pf = new PeakFinder(cfg.getString("cassandra.db.host"), cfg.getInt("cassandra.db.port"), 
-                              cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"), cfg.getString("cassandra.db.tableStats"), 
+      val pf = new PeakFinder(cfg.getString("cassandra.db.host"), cfg.getInt("cassandra.db.port"),
+                              cfg.getString("cassandra.db.username"), cfg.getString("cassandra.db.password"),
+                              cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"),
+                              cfg.getString("cassandra.db.tableStats"), cfg.getString("cassadra.db.tableMeta"),
                               cfg.getString("neo4j.bolt.url"), cfg.getString("neo4j.user"), cfg.getString("neo4j.password"))
       val startDate = LocalDate.parse(cfg.getString("peakfinder.startDate"))
       val endDate = LocalDate.parse(cfg.getString("peakfinder.endDate"))
       if (startDate.isAfter(endDate))
          throw new IllegalArgumentException("Start date is after end date")
+
+      // retrieve visits time series plus history of equal length
+      val visitsExtend = Period.between(startDate, endDate).getDays
+      val startDateExtend = startDate.minusDays(visitsExtend)
+      val extendedTimeSeries = pf.getVisitsTimeSeriesGroup(startDateExtend, endDate)
       val filteredTimeSeries = pf.getVisitsTimeSeriesGroup(startDate, endDate)
-      val activePages = pf.extractPeakActivity(filteredTimeSeries, startDate, endDate, 
-                                               cfg.getInt("peakfinder.burstRate"), cfg.getInt("peakfinder.burstCount"), 
-                                               cfg.getBoolean("peakfinder.useTableStats"))
+
+      val activePages = pf.extractPeakActivity(filteredTimeSeries, startDate, endDate,
+                                               extendedTimeSeries, startDateExtend,
+                                               cfg.getDouble("peakfinder.burstRate"), cfg.getInt("peakfinder.burstCount"))
       val activeTimeSeries = pf.getActiveTimeSeries(filteredTimeSeries, activePages)//.cache()
       
       
