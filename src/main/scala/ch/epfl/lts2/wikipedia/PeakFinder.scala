@@ -119,7 +119,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
       val pf = new PeakFinder(cfg.getString("cassandra.db.host"), cfg.getInt("cassandra.db.port"),
                               cfg.getString("cassandra.db.username"), cfg.getString("cassandra.db.password"),
                               cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"),
-                              cfg.getString("cassandra.db.tableStats"), cfg.getString("cassadra.db.tableMeta"),
+                              cfg.getString("cassandra.db.tableStats"), cfg.getString("cassandra.db.tableMeta"),
                               cfg.getString("neo4j.bolt.url"), cfg.getString("neo4j.user"), cfg.getString("neo4j.password"))
       val startDate = LocalDate.parse(cfg.getString("peakfinder.startDate"))
       val endDate = LocalDate.parse(cfg.getString("peakfinder.endDate"))
