@@ -87,7 +87,8 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   def extractPeakActivityZscore(input: Dataset[PageVisitGroup], startDate:LocalDate, endDate:LocalDate, inputExtended: Dataset[PageVisitGroup], startDateExtend:LocalDate,
                           lag: Int, threshold: Double, influence: Double): Dataset[Long] = {
     import session.implicits._
-
+    val startTime = startDateExtend.atStartOfDay
+    inputExtended.map(p => PageVisitElapsedGroup(p.page_id, p.visits.map(v => (Duration.between(startTime, v._1.toLocalDateTime).toHours.toInt, v._2.toDouble))))
   }
   
   def extractActiveSubGraph(activeNodes:Dataset[Long]):Graph[String, Double] = {
