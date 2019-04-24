@@ -17,6 +17,7 @@ class TimeSeriesExtractorConf(args:Seq[String]) extends ScallopConf(args) with S
   val startDate = opt[LocalDate](required = true, name="startDate")(singleArgConverter[LocalDate](LocalDate.parse(_)))
   val endDate = opt[LocalDate](required = true, name="endDate")(singleArgConverter[LocalDate](LocalDate.parse(_)))
   val pageIds = trailArg[List[Long]](required = true)
+  verify()
 }
 
 class TimeSeriesExtractor(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String,
