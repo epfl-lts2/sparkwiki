@@ -38,7 +38,7 @@ class TimeSeriesExtractor(dbHost:String, dbPort:Int, dbUsername:String, dbPasswo
   }
 
   def writeCsv(v:Array[Double], outputPath:String) = {
-    val writer = CSVWriter.open(new FileWriter(outputPath))
+    val writer = CSVWriter.open(new FileWriter(new File(outputPath)))
     writer.writeAll(List(v))
     writer.close()
   }
