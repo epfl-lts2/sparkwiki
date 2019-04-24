@@ -45,7 +45,7 @@ class TimeSeriesExtractor(dbHost:String, dbPort:Int, dbUsername:String, dbPasswo
     import session.implicits._
     val visitVec = visits.map(p => PageVisitElapsedGroup(p.page_id, p.visits.map(v => (Duration.between(startTime, v._1.toLocalDateTime).toHours.toInt, v._2.toDouble))))
       .map(p => (p.page_id, new VectorBuilder(p.visits.map(f => f._1).toArray, p.visits.map(f => f._2).toArray, p.visits.size, totalHours).toDenseVector.toArray))
-    visitVec.map(v => writeCsv(v._2, Paths.get(outputPath, v._1+".csv").toString))
+    visitVec.foreach(v => writeCsv(v._2, Paths.get(outputPath, v._1+".csv").toString))
   }
 }
 
