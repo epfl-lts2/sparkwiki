@@ -1,15 +1,17 @@
 package ch.epfl.lts2.wikipedia
 
-import java.io.File
-import java.io.FileWriter
+import java.io.{File, FileWriter, PrintWriter}
 import java.nio.file.Paths
 import java.time._
+
 import breeze.linalg.VectorBuilder
 import org.rogach.scallop._
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Dataset, SparkSession}
 import com.github.tototoshi.csv._
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 
 class TimeSeriesExtractorConf(args:Seq[String]) extends ScallopConf(args) with Serialization {
   val cfgFile = opt[String](name="config", required=true)
@@ -22,7 +24,7 @@ class TimeSeriesExtractorConf(args:Seq[String]) extends ScallopConf(args) with S
 
 class TimeSeriesExtractor(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String,
                           keySpace: String, tableVisits:String, tableMeta:String)
-  extends PageCountStatsLoader with Serializable {
+  extends PageCountStatsLoader with CsvWriter with Serializable {
 
   lazy val sparkConfig: SparkConf = new SparkConf().setAppName("Wikipedia activity detector")
     .set("spark.cassandra.connection.host", dbHost)
@@ -37,16 +39,15 @@ class TimeSeriesExtractor(dbHost:String, dbPort:Int, dbUsername:String, dbPasswo
               .filter(p => pageIds.contains(p.page_id))
   }
 
-  def writeCsv(v:Array[Double], outputPath:String) = {
-    val writer = CSVWriter.open(new FileWriter(new File(outputPath)))
-    writer.writeAll(List(v))
-    writer.close()
-  }
+
+
   def writeOutput(visits:Dataset[PageVisitGroup], outputPath:String, startTime:LocalDateTime, totalHours:Int) = {
     import session.implicits._
     val visitVec = visits.map(p => PageVisitElapsedGroup(p.page_id, p.visits.map(v => (Duration.between(startTime, v._1.toLocalDateTime).toHours.toInt, v._2.toDouble))))
-      .map(p => (p.page_id, new VectorBuilder(p.visits.map(f => f._1).toArray, p.visits.map(f => f._2).toArray, p.visits.size, totalHours).toDenseVector.toArray))
-    visitVec.foreach(v => writeCsv(v._2, Paths.get(outputPath, v._1+".csv").toString))
+                    .map(p => (p.page_id, new VectorBuilder(p.visits.map(f => f._1).toArray, p.visits.map(f => f._2).toArray, p.visits.size, totalHours).toDenseVector.toArray))
+
+
+    visitVec.foreach(v => writeCsv(session.sparkContext.parallelize(v._2.toList).toDF, Paths.get(outputPath, v._1+".csv").toString, false, true))
   }
 }
 
