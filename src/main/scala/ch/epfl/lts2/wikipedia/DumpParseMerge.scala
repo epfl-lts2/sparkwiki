@@ -1,14 +1,8 @@
 package ch.epfl.lts2.wikipedia
 import java.nio.file.Paths
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs._
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession}
-
-import scala.RuntimeException
+import org.apache.spark.SparkConf
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.rogach.scallop._
 
 class MergeConf(args: Seq[String]) extends ScallopConf(args) with Serialization {
@@ -36,7 +30,6 @@ object DumpParseMerge extends CsvWriter {
   }
   
   def joinPageLinks(session:SparkSession, pages:DataFrame, pageLinkPath:String, outputPath:String) = {
-    import session.implicits._
    
     val pagelinks = session.read.parquet(pageLinkPath)
     val pagelinks_id = pagelinks.join(pages, Seq("title", "namespace"))

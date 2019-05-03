@@ -35,7 +35,6 @@ object GraphUtils {
     * @param graph Graph to process
     * @param minWeight Weight threshold
     * @tparam VD
-    * @tparam ED
     * @return Graph with edges that have weights higher than the minWeight.
     */
   def removeLowWeightEdges[VD: ClassTag](graph: Graph[VD, Double], minWeight: Double): Graph[VD, Double] = {
@@ -44,31 +43,7 @@ object GraphUtils {
     )
   }
   
-  /**
-    * Computes similarity of two time-series
-    * @param v1 page id of edge start
-    * @param v2 page id of endge end
-    * @param startDate Start of time-window
-    * @param endDate End of time-window
-    * @param isFiltered Specifies if filtering is required (divides values by the number of spikes)
-    * @return Similarity measure
-    */
-  def compareTimeSeries(v1Visits:List[(Timestamp, Int)], v2Visits:List[(Timestamp, Int)], isFiltered: Boolean = true, lambda: Double = 0.5): Double = {
-    
-    val commonTimes = v2Visits.map(_._1).intersect(v1Visits.map(_._1))
 
-    val m1Freq = if (isFiltered) v1Visits.size.toDouble else 1.0
-    val m2Freq = if (isFiltered) v2Visits.size.toDouble else 1.0
-
-    if (commonTimes.isEmpty) 0
-    else {
-      val v1Cnt = v1Visits.filter(p => commonTimes.contains(p._1)).map(p => (p._1, p._2/m1Freq))
-      val v2Cnt = v2Visits.filter(p => commonTimes.contains(p._1)).map(p => (p._1, p._2/m2Freq))
-      val vPairs =  (v1Cnt ++ v2Cnt).groupBy(p => p._1).mapValues(p => p.map(v => v._2))
-      val similarity = vPairs.mapValues(p => scala.math.min(p(0), p(1)) / scala.math.max(p(0), p(1))).values.filter(v => v > lambda)
-      if (similarity.isEmpty) 0 else similarity.sum
-    }
-  }
   
   /**
     * Get the largest connected component (LCC) of a graph
@@ -90,6 +65,13 @@ object GraphUtils {
                     .groupBy(e => (e.srcId, e.dstId))
                     .mapValues(v => v.map(_.attr).sum)
                     .map(k => Edge(k._1._1, k._1._2, k._2))
+    Graph(g.vertices, ec)
+  }
+
+  def toUndirected[VD:ClassTag, ED:ClassTag](g: Graph[VD, ED], op:Iterable[Edge[ED]] => ED):Graph[VD,ED] ={
+    val ec = g.edges.map(e => if (e.srcId < e.dstId) Edge(e.srcId, e.dstId, e.attr) else Edge(e.dstId, e.srcId, e.attr))
+                    .groupBy(e => (e.srcId, e.dstId))
+                    .mapValues(v => op(v)).map(k => Edge(k._1._1, k._1._2, k._2))
     Graph(g.vertices, ec)
   }
 
