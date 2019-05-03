@@ -13,6 +13,12 @@ class UnavailableVisitDataException(message:String) extends Exception(message)
 
 trait PageCountStatsLoader {
   val zipper = udf[Seq[(Timestamp, Int)], Seq[Timestamp], Seq[Int]](_.zip(_))
+
+  def getPeriodHours(startDate:LocalDate, endDate:LocalDate):Int = {
+    val visitsPeriod = Duration.between(startDate.atStartOfDay, endDate.plusDays(1).atStartOfDay)
+    visitsPeriod.toHours.toInt
+  }
+
   def getVisits(session:SparkSession, keySpace:String, tableVisits:String):Dataset[PageVisitRow] = {
     import session.implicits._
     session.read

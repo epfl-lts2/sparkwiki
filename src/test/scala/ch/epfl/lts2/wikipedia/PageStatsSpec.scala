@@ -3,8 +3,7 @@ package ch.epfl.lts2.wikipedia
 import org.scalatest._
 import org.scalactic._
 import java.time._
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession, Dataset}
+import scala.util.Random
 import java.sql.Timestamp
 
 //case class PageVisitGroup(page_id:Long, visits:List[(Timestamp, Int)])
@@ -36,7 +35,7 @@ class PageStatsSpec extends FlatSpec with SparkSessionTestWrapper {
     import spark.implicits._
     val pf = new PeakFinder("localhost", 9042, "username", "password",
                           "keyspace", "tableVisits", "tableStats", "tableMeta",
-                    "boltUrl", "neo4j", "neo4j")
+                    "boltUrl", "neo4j", "neo4j", "outputPath")
     val startDate = LocalDate.parse("2018-08-01")
     val endDate = LocalDate.parse("2018-08-01")
     val p1 = PageVisitGroup(1, 
@@ -62,8 +61,31 @@ class PageStatsSpec extends FlatSpec with SparkSessionTestWrapper {
     val res2 = res.filter(_.page_id == 2).first
     assert(res2.mean === 0.0)
     assert(res2.variance === 1.39130435)
+
+  }
+  it should "behave correctly when comparing time series" in {
+    import spark.implicits._
+    val pf = new PeakFinder("localhost", 9042, "username", "password",
+                            "keyspace", "tableVisits", "tableStats", "tableMeta",
+                            "boltUrl", "neo4j", "neo4j", "outputPath")
+    val startTime = LocalDate.parse("2018-09-01").atStartOfDay
+    val ts = Timestamp.valueOf(startTime)
+    val v1 = List((ts, 10))
+    val v2 = List((ts, 20))
+
+    assert(pf.compareTimeSeries(("v1", Option(v1)), ("v2", None), startTime, 1, isFiltered=true) === 0.0)
+    assert(pf.compareTimeSeries(("v1", None), ("v2", Option(v2)), startTime, 1, isFiltered=true) === 0.0)
+    assert(pf.compareTimeSeries(("v1", None), ("v2", None), startTime, 1, isFiltered=true) === 0.0)
     
-  
+
+    assert(pf.compareTimeSeriesPearson(("v1", Option(v1)), ("v2", None), startTime, 1) === 0.0)
+    assert(pf.compareTimeSeriesPearson(("v1", None), ("v2", Option(v2)), startTime, 1) === 0.0)
+    assert(pf.compareTimeSeriesPearson(("v1", None), ("v2", None), startTime, 1) === 0.0)
+
+    val x = Array.fill(100)(Random.nextDouble)
+    val y = x.map(-_)
+    assert(TimeSeriesUtils.pearsonCorrelation(x, x) === 1.0)
+    assert(TimeSeriesUtils.pearsonCorrelation(x, y) === -1.0)
   }
 }
 
