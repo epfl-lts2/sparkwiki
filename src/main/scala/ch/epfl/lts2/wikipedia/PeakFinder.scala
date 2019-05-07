@@ -11,10 +11,10 @@ import breeze.stats._
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkConf
 import org.apache.spark.graphx._
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import org.apache.spark.sql.functions.{greatest, least, lit, udf, desc}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, Column, SparkSession}
+import org.apache.spark.sql.functions.{greatest, least, lit, udf, desc, col, array, explode}
 import org.neo4j.spark._
-import org.graphframes.GraphFrame
+import org.graphframes._
 import scala.collection.mutable.WrappedArray
 
 case class PageRowThreshold(page_id:Long, threshold: Double)
@@ -175,9 +175,22 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     GraphFrame(g.vertices, edgesSingle.withColumn("weight", lit(1.0)))
   }
 
+  private def dropIsolatedVertices(g:GraphFrame): GraphFrame = {
+    val ID = "id"
+    val SRC = "src"
+    val DST = "dst"
+    val e1 = g.edges.withColumn(ID, explode(array(col(SRC), col(DST))))
+    val vv = g.vertices.join(e1, Seq(ID), "left_semi")
+    GraphFrame(vv, g.edges)
+  }
+  private def filterEdges(g:GraphFrame, condition: Column):GraphFrame =  {
+    val ee = g.edges.filter(condition)
+    GraphFrame(g.vertices, ee)
+  }
+
   def cleanGraph(g:GraphFrame, minWeight:Double):GraphFrame = {
     import session.implicits._
-    g.filterEdges($"weight" > minWeight).dropIsolatedVertices
+    dropIsolatedVertices(filterEdges(g, $"weight" > minWeight))
   }
 
   def computeEdgeWeights(g:GraphFrame, usePearson:Boolean, startTime:LocalDateTime, totalHours:Int, isFiltered:Boolean=true, lambda:Double=0.5):GraphFrame =  {
@@ -199,7 +212,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     // get largest component id
     val lc = cc.groupBy($"component").count.orderBy(desc("count")).first.getLong(0)
     val vert = cc.filter($"component" === lc).drop("component")
-    GraphFrame(vert.drop("component"), g.edges).dropIsolatedVertices
+    dropIsolatedVertices(GraphFrame(vert.drop("component"), g.edges))
   }
 }
   
