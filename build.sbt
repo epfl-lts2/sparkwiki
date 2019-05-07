@@ -5,7 +5,7 @@ lazy val root = (project in file(".")).
     inThisBuild(List(
       organization := "ch.epfl.lts2",
       scalaVersion := "2.11.11",
-      version      := "0.9.3"
+      version      := "0.10.0"
     )),
     name := "SparkWiki",
     resolvers += "Spark Packages Repo" at "http://dl.bintray.com/spark-packages/maven",
@@ -20,5 +20,6 @@ lazy val root = (project in file(".")).
     libraryDependencies += "org.apache.spark" %% "spark-graphx" % "2.3.1",
     libraryDependencies += "org.apache.hadoop" % "hadoop-client" % "2.8.4",
     libraryDependencies += "com.google.guava" % "guava" % "27.1-jre",
-    libraryDependencies += "com.github.servicenow.stl4j" % "stl-decomp-4j" % "1.0.5"
-)
+    libraryDependencies += "com.github.servicenow.stl4j" % "stl-decomp-4j" % "1.0.5",
+    libraryDependencies += "graphframes" % "graphframes" % "0.7.0-spark2.4-s_2.11"
+    )

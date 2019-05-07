@@ -11,15 +11,17 @@ import breeze.stats._
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkConf
 import org.apache.spark.graphx._
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
+import org.apache.spark.sql.functions.{greatest, least, lit, udf, desc}
 import org.neo4j.spark._
-
+import org.graphframes.GraphFrame
+import scala.collection.mutable.WrappedArray
 
 case class PageRowThreshold(page_id:Long, threshold: Double)
 case class PageVisitThrGroup(page_id:Long, threshold:Double, visits:List[(Timestamp, Int)])
 case class PageVisitGroup(page_id:Long, visits:List[(Timestamp, Int)])
 case class PageVisitElapsedGroup(page_id:Long, visits:List[(Int,Double)])
-
+case class PageNode(id:Long, title:String)
 
 class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String,
                  keySpace: String, tableVisits:String, tableStats:String, tableMeta:String,
@@ -35,7 +37,20 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
 
   lazy val session: SparkSession = SparkSession.builder.config(sparkConfig).getOrCreate()
 
+  val udfTimeSeriesSimilarity = udf { (v1: WrappedArray[Row], v2: WrappedArray[Row],
+                                    startTime:LocalDateTime, totalHours:Int, isFiltered: Boolean, lambda:Double) =>
+    // converts the array items into tuples, sorts by first item and returns first two tuples:
+    val a1 = v1.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
+    val a2 = v2.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
+    compareTimeSeries(a1, a2, startTime, totalHours, isFiltered, lambda)
+  }
 
+  val udfTimeSeriesPearson = udf { (v1: WrappedArray[Row], v2: WrappedArray[Row], startTime:LocalDateTime, totalHours:Int) =>
+    // converts the array items into tuples, sorts by first item and returns first two tuples:
+    val a1 = v1.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
+    val a2 = v2.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
+    compareTimeSeriesPearson(a1, a2, startTime, totalHours)
+                                 }
   /**
     * Computes similarity of two time-series
     * @param v1 Time-series of edge start
@@ -44,15 +59,13 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     * @param lambda Similarity threshold (discard pairs having a lower similarity)
     * @return Similarity measure
     */
-  def compareTimeSeries(v1:(String, Option[List[(Timestamp, Int)]]), v2:(String, Option[List[(Timestamp, Int)]]),
+  def compareTimeSeries(v1:List[(Timestamp, Int)], v2:List[(Timestamp, Int)],
                         startTime:LocalDateTime, totalHours:Int,
                         isFiltered: Boolean, lambda: Double = 0.5): Double = {
 
 
-    val v1Visits = v1._2.getOrElse(List[(Timestamp, Int)]())
-    val v2Visits = v2._2.getOrElse(List[(Timestamp, Int)]())
-    if (v1Visits.isEmpty || v2Visits.isEmpty) 0.0
-    else TimeSeriesUtils.compareTimeSeries(v1Visits, v2Visits, startTime, totalHours, isFiltered, lambda)
+    if (v1.isEmpty || v2.isEmpty) 0.0
+    else TimeSeriesUtils.compareTimeSeries(v1, v2, startTime, totalHours, isFiltered, lambda)
   }
 
   private def compareTimeSeriesPearsonUnsafe(v1: Array[Double], v2:Array[Double]): Double = {
@@ -63,13 +76,11 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     Math.max(0.0, c) // clip to 0, negative correlation means no interest for us
   }
 
-  def compareTimeSeriesPearson(v1:(String, Option[List[(Timestamp, Int)]]), v2:(String, Option[List[(Timestamp, Int)]]), startTime:LocalDateTime, totalHours:Int): Double =
+  def compareTimeSeriesPearson(v1:List[(Timestamp, Int)], v2:List[(Timestamp, Int)], startTime:LocalDateTime, totalHours:Int): Double =
   {
-    val v1Safe = v1._2.getOrElse(List[(Timestamp, Int)]())
-    val v2Safe = v2._2.getOrElse(List[(Timestamp, Int)]())
-    val vd1 = TimeSeriesUtils.densifyVisitList(v1Safe, startTime, totalHours)
-    val vd2 = TimeSeriesUtils.densifyVisitList(v2Safe, startTime, totalHours)
-    if (v1Safe.isEmpty || v2Safe.isEmpty) 0.0
+    val vd1 = TimeSeriesUtils.densifyVisitList(v1, startTime, totalHours)
+    val vd2 = TimeSeriesUtils.densifyVisitList(v2, startTime, totalHours)
+    if (v1.isEmpty || v2.isEmpty) 0.0
     else compareTimeSeriesPearsonUnsafe(vd1, vd2) * totalHours // use scaling to mimick behavior of compareTimeSeries
   }
 
@@ -131,29 +142,65 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     activePages.map(_._1)
   }
   
-  def extractActiveSubGraph(activeNodes:Dataset[Long]):Graph[String, Double] = {
+  def extractActiveSubGraph(activeNodes:Dataset[Long]):GraphFrame = {
     // setup neo4j connection
+    import session.implicits._
     val neo = Neo4j(session.sparkContext)
-    val nodesQuery = "MATCH (p:Page) WHERE p.id in {nodelist} RETURN p.id AS id, p.title AS value"
-    val relsQuery = "MATCH (p1)-[r]->(p2) WHERE p1.id IN {nodelist} AND p2.id IN {nodelist} RETURN p1.id AS source, p2.id AS target, type(r) AS value"
+    val nodesQuery = "MATCH (p:Page) WHERE p.id in {nodelist} RETURN p.id AS id, p.title AS title"
+    val relsQuery = "MATCH (p1)-[r]->(p2) WHERE p1.id IN {nodelist} AND p2.id IN {nodelist} RETURN p1.id AS src, p2.id AS dst, type(r) AS edgeType"
     val nodeList = activeNodes.collectAsList() // neo4j connector cannot take RDDs
     
     // perform query
-    val graph:Graph[String,String] = neo.nodes(nodesQuery, Map("nodelist" -> nodeList))
-                                        .rels(relsQuery, Map("nodelist" -> nodeList))
-                                        .loadGraph     
-    graph.mapEdges(_ => 1.0) // TODO use a tuple to keep track of relationship type
-         .mapVertices((_, title) => xml.Utility.escape(title)) // escape special chars for xml/gexf output
+    val graph = neo.nodes(nodesQuery, Map("nodelist" -> nodeList))
+                   .rels(relsQuery, Map("nodelist" -> nodeList))
+                   .loadGraphFrame
+
+
+    val v  = graph.vertices.as[PageNode].map(p => PageNode(p.id, xml.Utility.escape(p.title))) // escape special chars for xml/gexf output
+    GraphFrame(v.toDF, graph.edges)
   }
   
   
   def getVisitsTimeSeriesGroup(startDate:LocalDate, endDate:LocalDate):Dataset[PageVisitGroup] = getVisitsTimeSeriesGroup(session, keySpace, tableVisits, tableMeta, startDate, endDate)
-  def getActiveTimeSeries(timeSeries:Dataset[PageVisitGroup], activeNodes:Dataset[Long]):Dataset[(Long, List[(Timestamp, Int)])] = {
+  def getActiveTimeSeries(timeSeries:Dataset[PageVisitGroup], activeNodes:Dataset[Long]):Dataset[PageVisitGroup]= {
     import session.implicits._
-    timeSeries.join(activeNodes.toDF("page_id"), "page_id").as[PageVisitGroup].map(p => (p.page_id, p.visits))
+    timeSeries.join(activeNodes.toDF("page_id"), "page_id").as[PageVisitGroup]//.map(p => (p.page_id, p.visits))
   }
-  
-  
+
+  def toWeightedUndirected(g: GraphFrame):GraphFrame = {
+    import session.implicits._
+    val edgesSingle = g.edges.as("set")
+               .groupBy(least($"set.src", $"set.dst"), greatest($"set.src", $"set.dst"), $"set.edgeType")
+               .count().toDF("src", "dst", "edgeType", "count").drop("count")
+    GraphFrame(g.vertices, edgesSingle.withColumn("weight", lit(1.0)))
+  }
+
+  def cleanGraph(g:GraphFrame, minWeight:Double):GraphFrame = {
+    import session.implicits._
+    g.filterEdges($"weight" > minWeight).dropIsolatedVertices
+  }
+
+  def computeEdgeWeights(g:GraphFrame, usePearson:Boolean, startTime:LocalDateTime, totalHours:Int, isFiltered:Boolean=true, lambda:Double=0.5):GraphFrame =  {
+    import session.implicits._
+    //triplets columns = (src, edge, dst)
+    // src/dst = source/destination vertex with attribute columns
+    val tt = g.triplets.withColumn("startTime", lit(startTime)).withColumn("totalHours", lit(totalHours))
+    val t = if (usePearson) tt.withColumn("weight", udfTimeSeriesPearson($"src.visits", $"dst.visits", $"startTime", $"totalHours"))
+            else tt.withColumn("isFiltered", lit(isFiltered))
+                   .withColumn("lambda", lit(lambda))
+                   .withColumn("weight", udfTimeSeriesSimilarity($"src.visits", $"dst.visits", $"startTime", $"totalHours", $"isFiltered", $"lambda"))
+    val edgesWeight = t.select($"edge.src", $"edge.dst", $"edge.edgeType", $"weight")
+    GraphFrame(g.vertices, edgesWeight)
+  }
+
+  def getLargestConnectedComponent(g: GraphFrame):GraphFrame = {
+    import session.implicits._
+    val cc = g.connectedComponents.run()
+    // get largest component id
+    val lc = cc.groupBy($"component").count.orderBy(desc("count")).first.getLong(0)
+    val vert = cc.filter($"component" === lc).drop("component")
+    GraphFrame(vert.drop("component"), g.edges).dropIsolatedVertices
+  }
 }
   
   
@@ -200,36 +247,27 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
                                                          activityThreshold = cfg.getInt("peakfinder.zscore.activityThreshold"),
                                                          saveOutput = cfg.getBoolean("peakfinder.zscore.saveOutput"))
 
-      val activeTimeSeries = pf.getActiveTimeSeries(filteredTimeSeries, activePages)//.cache()
+      val activeTimeSeries = pf.getActiveTimeSeries(filteredTimeSeries, activePages).withColumnRenamed("page_id", "id")//.cache()
       
       
-
-      val activePagesGraph = GraphUtils.toUndirected(pf.extractActiveSubGraph(activePages).outerJoinVertices(activeTimeSeries.rdd)((_, title, visits) => (title, visits)), pf.mergeEdges)
-
-
+      val gf = pf.toWeightedUndirected(pf.extractActiveSubGraph(activePages))
+      val vts = gf.vertices.join(activeTimeSeries, Seq("id"), "outer")
+      val activePagesGraph = GraphFrame(vts, gf.edges)
       
-      val trainedGraph = if (pearsonCorr)
-                                activePagesGraph.mapTriplets(t => pf.compareTimeSeriesPearson(t.dstAttr, t.srcAttr, startTime, totalHours))
-                                                .mapVertices((_, v) => v._1)
-                            else
-                                activePagesGraph.mapTriplets(t => pf.compareTimeSeries(t.dstAttr, t.srcAttr, startTime, totalHours,
-                                                                                       isFiltered = true, lambda = 0.5))
-                                                .mapVertices((_, v) => v._1)
+      val trainedGraph = pf.computeEdgeWeights(activePagesGraph, pearsonCorr, startTime, totalHours, isFiltered=true, lambda=0.5)
 
-      val prunedGraph = GraphUtils.removeLowWeightEdges(trainedGraph, minWeight = cfg.getDouble("peakfinder.minEdgeWeight"))
-
-      val cleanGraph = GraphUtils.removeSingletons(prunedGraph)
-      val finalGraph = GraphUtils.getLargestConnectedComponent(cleanGraph)
+      val cleanGraph = pf.cleanGraph(trainedGraph, cfg.getDouble("peakfinder.minEdgeWeight"))
+      val finalGraph = pf.getLargestConnectedComponent(cleanGraph)
 
 
 
       if (outputPath.startsWith("hdfs://")) {
         val tmpPath = outputPath.replaceFirst("hdfs://", "")
-        GraphUtils.saveGraphHdfs(finalGraph, weighted=true,
+        GraphUtils.saveGraphHdfs(pf.session, finalGraph, weighted=true,
                                  fileName = Paths.get(tmpPath, "peaks_graph_" + dateFormatter.format(startDate) + "_" + dateFormatter.format(endDate) + ".gexf").toString)
       }
       else
-        GraphUtils.saveGraph(finalGraph, weighted = true,
+        GraphUtils.saveGraph(pf.session, finalGraph, weighted = true,
                            fileName = Paths.get(outputPath, "peaks_graph_" + dateFormatter.format(startDate) + "_" + dateFormatter.format(endDate) + ".gexf").toString)
 
     }

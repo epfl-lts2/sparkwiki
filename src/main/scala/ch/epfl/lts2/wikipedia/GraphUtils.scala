@@ -1,12 +1,12 @@
 package ch.epfl.lts2.wikipedia
 
 import java.io.PrintWriter
-import java.sql.Timestamp
 import org.apache.spark.graphx._
 import scala.reflect.ClassTag
+import org.apache.spark.sql.SparkSession
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
-
+import org.graphframes.GraphFrame
 
 
 /*
@@ -75,6 +75,8 @@ object GraphUtils {
     Graph(g.vertices, ec)
   }
 
+
+
   /**
     * Converts GraphX graph to GEXF XML format. Returns unweighted graph.
     * The code is taken from "Spark GraphX in Action" book
@@ -97,7 +99,23 @@ object GraphUtils {
       "        </edges>\n" +
       " </graph>\n" +
       "</gexf>"
-
+  private def toGexf(session:SparkSession, g:GraphFrame):String ={
+    import session.implicits._
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+      "<gexf xmlns=\"http://www.gexf.net/1.2draft\" version=\"1.2\">\n" +
+      " <graph mode=\"static\" defaultedgetype=\"directed\">\n" +
+      " <nodes>\n" +
+      g.vertices.map(v => "      <node id=\"" + v.getLong(0) + "\" label=\"" +
+        v.getString(1) + "\" />\n").collect.mkString +
+      "      </nodes>\n" +
+      "      <edges>\n" +
+      g.edges.map(e => "        <edge source=\"" + e.getLong(0) +
+        "\" target=\"" + e.getLong(1) + "\" label=\"" + e.getString(2) +
+        "\" />\n").collect.mkString +
+      "        </edges>\n" +
+      " </graph>\n" +
+      "</gexf>"
+  }
   /**
     * Converts GraphX graph to GEXF XML format. Returns weighted graph.
     * @param g GraphX graph
@@ -119,7 +137,23 @@ object GraphUtils {
       " </graph>\n" +
       "</gexf>"
 
-
+  private def toGexfWeighted(session:SparkSession, g:GraphFrame):String = {
+    import session.implicits._
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+      "<gexf xmlns=\"http://www.gexf.net/1.2draft\" version=\"1.2\">\n" +
+      " <graph mode=\"static\" defaultedgetype=\"directed\">\n" +
+      " <nodes>\n" +
+      g.vertices.map(v => "      <node id=\"" + v.getLong(0) + "\" label=\"" +
+        v.getString(1) + "\" />\n").collect.mkString +
+      "      </nodes>\n" +
+      "      <edges>\n" +
+      g.edges.map(e => "        <edge source=\"" + e.getLong(0) +
+        "\" target=\"" + e.getLong(1) + "\" label=\"" + e.getString(2) + "\" weight=\"" + e.getDouble(3) +
+        "\" />\n").collect.mkString +
+      "        </edges>\n" +
+      " </graph>\n" +
+      "</gexf>"
+  }
       
   /**
     * Save GEXF graph to a file
@@ -136,6 +170,15 @@ object GraphUtils {
 
     pw.close
   }
+
+  def saveGraph(session:SparkSession, graph:GraphFrame, weighted: Boolean=true, fileName:String)={
+    val pw = new PrintWriter(fileName)
+
+    if (weighted) pw.write(toGexfWeighted(session, graph))
+    else pw.write(toGexf(session, graph))
+
+    pw.close
+  }
   
   /**
     * Save GEXF graph to a file
@@ -146,6 +189,13 @@ object GraphUtils {
   def saveGraphHdfs[VD, ED](graph: Graph[VD, ED], weighted: Boolean = true, fileName: String) = {
     
     val data = if (weighted) toGexfWeighted(graph) else  toGexf(graph)
+
+    writeHadoop(fileName, data)
+  }
+
+  def saveGraphHdfs[VD, ED](session:SparkSession, graph: GraphFrame, weighted: Boolean = true, fileName: String) = {
+
+    val data = if (weighted) toGexfWeighted(session, graph) else  toGexf(session, graph)
 
     writeHadoop(fileName, data)
   }
