@@ -64,7 +64,6 @@ class PageStatsSpec extends FlatSpec with SparkSessionTestWrapper {
 
   }
   it should "behave correctly when comparing time series" in {
-    import spark.implicits._
     val pf = new PeakFinder("localhost", 9042, "username", "password",
                             "keyspace", "tableVisits", "tableStats", "tableMeta",
                             "boltUrl", "neo4j", "neo4j", "outputPath")
@@ -73,14 +72,14 @@ class PageStatsSpec extends FlatSpec with SparkSessionTestWrapper {
     val v1 = List((ts, 10))
     val v2 = List((ts, 20))
 
-    assert(pf.compareTimeSeries(("v1", Option(v1)), ("v2", None), startTime, 1, isFiltered=true) === 0.0)
-    assert(pf.compareTimeSeries(("v1", None), ("v2", Option(v2)), startTime, 1, isFiltered=true) === 0.0)
-    assert(pf.compareTimeSeries(("v1", None), ("v2", None), startTime, 1, isFiltered=true) === 0.0)
+    assert(pf.compareTimeSeries(v1, List[(Timestamp, Int)](), startTime, 1, isFiltered=true) === 0.0)
+    assert(pf.compareTimeSeries(List[(Timestamp, Int)](), v2, startTime, 1, isFiltered=true) === 0.0)
+    assert(pf.compareTimeSeries(List[(Timestamp, Int)](), List[(Timestamp, Int)](), startTime, 1, isFiltered=true) === 0.0)
     
 
-    assert(pf.compareTimeSeriesPearson(("v1", Option(v1)), ("v2", None), startTime, 1) === 0.0)
-    assert(pf.compareTimeSeriesPearson(("v1", None), ("v2", Option(v2)), startTime, 1) === 0.0)
-    assert(pf.compareTimeSeriesPearson(("v1", None), ("v2", None), startTime, 1) === 0.0)
+    assert(pf.compareTimeSeriesPearson(v1, List[(Timestamp, Int)](), startTime, 1) === 0.0)
+    assert(pf.compareTimeSeriesPearson(List[(Timestamp, Int)](), v2, startTime, 1) === 0.0)
+    assert(pf.compareTimeSeriesPearson(List[(Timestamp, Int)](), List[(Timestamp, Int)](), startTime, 1) === 0.0)
 
     val x = Array.fill(100)(Random.nextDouble)
     val y = x.map(-_)

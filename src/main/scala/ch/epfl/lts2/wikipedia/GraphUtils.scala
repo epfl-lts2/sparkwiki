@@ -171,7 +171,7 @@ object GraphUtils {
     pw.close
   }
 
-  def saveGraph(session:SparkSession, graph:GraphFrame, weighted: Boolean=true, fileName:String)={
+  def saveGraphFrame(session:SparkSession, graph:GraphFrame, weighted: Boolean=true, fileName:String)={
     val pw = new PrintWriter(fileName)
 
     if (weighted) pw.write(toGexfWeighted(session, graph))
@@ -193,7 +193,7 @@ object GraphUtils {
     writeHadoop(fileName, data)
   }
 
-  def saveGraphHdfs[VD, ED](session:SparkSession, graph: GraphFrame, weighted: Boolean = true, fileName: String) = {
+  def saveGraphFrameHdfs[VD, ED](session:SparkSession, graph: GraphFrame, weighted: Boolean = true, fileName: String) = {
 
     val data = if (weighted) toGexfWeighted(session, graph) else  toGexf(session, graph)
 

@@ -276,11 +276,11 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
 
       if (outputPath.startsWith("hdfs://")) {
         val tmpPath = outputPath.replaceFirst("hdfs://", "")
-        GraphUtils.saveGraphHdfs(pf.session, finalGraph, weighted=true,
+        GraphUtils.saveGraphFrameHdfs(pf.session, finalGraph, weighted=true,
                                  fileName = Paths.get(tmpPath, "peaks_graph_" + dateFormatter.format(startDate) + "_" + dateFormatter.format(endDate) + ".gexf").toString)
       }
       else
-        GraphUtils.saveGraph(pf.session, finalGraph, weighted = true,
+        GraphUtils.saveGraphFrame(pf.session, finalGraph, weighted = true,
                            fileName = Paths.get(outputPath, "peaks_graph_" + dateFormatter.format(startDate) + "_" + dateFormatter.format(endDate) + ".gexf").toString)
 
     }
