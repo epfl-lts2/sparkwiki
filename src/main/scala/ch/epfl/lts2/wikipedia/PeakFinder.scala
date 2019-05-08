@@ -13,6 +13,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.graphx._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, Column, SparkSession}
 import org.apache.spark.sql.functions.{greatest, least, lit, udf, desc, col, array, explode}
+import org.apache.spark.storage.StorageLevel
 import org.neo4j.spark._
 import org.graphframes._
 import scala.collection.mutable.WrappedArray
@@ -197,7 +198,9 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   def getLargestConnectedComponent(g: GraphFrame):GraphFrame = {
     import session.implicits._
     session.sparkContext.setCheckpointDir("/tmp") // required by connected components
-    val cc = g.connectedComponents.run()
+    val cc = g.connectedComponents
+              .setAlgorithm("graphx") // this one seems to run faster for our use
+              .run()
     // get largest component id
     val lc = cc.groupBy($"component").count.orderBy(desc("count")).first.getLong(0)
     val vert = cc.filter($"component" === lc).drop("component")
