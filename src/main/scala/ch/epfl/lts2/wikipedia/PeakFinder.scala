@@ -125,7 +125,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   def extractPeakActivityZscore(startDate:LocalDate, endDate:LocalDate, inputExtended: Dataset[PageVisitGroup], startDateExtend:LocalDate,
                           lag: Int, threshold: Double, influence: Double, activityThreshold:Int, saveOutput:Boolean=false): Dataset[Long] = {
     import session.implicits._
-    val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
     val startTime = startDateExtend.atStartOfDay
     val totalHours = getPeriodHours(startDateExtend, endDate)
     val extensionHours = getPeriodHours(startDateExtend, startDate.minusDays(1)) // do not remove first day of studied period
@@ -175,22 +175,10 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     GraphFrame(g.vertices, edgesSingle.withColumn("weight", lit(1.0)))
   }
 
-  private def dropIsolatedVertices(g:GraphFrame): GraphFrame = {
-    val ID = "id"
-    val SRC = "src"
-    val DST = "dst"
-    val e1 = g.edges.withColumn(ID, explode(array(col(SRC), col(DST))))
-    val vv = g.vertices.join(e1, Seq(ID), "left_semi")
-    GraphFrame(vv, g.edges)
-  }
-  private def filterEdges(g:GraphFrame, condition: Column):GraphFrame =  {
-    val ee = g.edges.filter(condition)
-    GraphFrame(g.vertices, ee)
-  }
 
   def cleanGraph(g:GraphFrame, minWeight:Double):GraphFrame = {
     import session.implicits._
-    dropIsolatedVertices(filterEdges(g, $"weight" > minWeight))
+    g.filterEdges($"weight" > minWeight).dropIsolatedVertices()
   }
 
   def computeEdgeWeights(g:GraphFrame, usePearson:Boolean, startTime:LocalDateTime, totalHours:Int, isFiltered:Boolean=true, lambda:Double=0.5):GraphFrame =  {
@@ -212,7 +200,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     // get largest component id
     val lc = cc.groupBy($"component").count.orderBy(desc("count")).first.getLong(0)
     val vert = cc.filter($"component" === lc).drop("component")
-    dropIsolatedVertices(GraphFrame(vert.drop("component"), g.edges))
+    GraphFrame(vert.drop("component"), g.edges).dropIsolatedVertices()
   }
 }
   
