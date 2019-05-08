@@ -196,6 +196,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
 
   def getLargestConnectedComponent(g: GraphFrame):GraphFrame = {
     import session.implicits._
+    session.sparkContext.setCheckpointDir("/tmp") // required by connected components
     val cc = g.connectedComponents.run()
     // get largest component id
     val lc = cc.groupBy($"component").count.orderBy(desc("count")).first.getLong(0)
