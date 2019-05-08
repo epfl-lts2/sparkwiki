@@ -38,14 +38,14 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   lazy val session: SparkSession = SparkSession.builder.config(sparkConfig).getOrCreate()
 
   val udfTimeSeriesSimilarity = udf { (v1: WrappedArray[Row], v2: WrappedArray[Row],
-                                    startTime:LocalDateTime, totalHours:Int, isFiltered: Boolean, lambda:Double) =>
+                                    startTime:Timestamp, totalHours:Int, isFiltered: Boolean, lambda:Double) =>
     // converts the array items into tuples, sorts by first item and returns first two tuples:
     val a1 = v1.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
     val a2 = v2.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
     compareTimeSeries(a1, a2, startTime, totalHours, isFiltered, lambda)
   }
 
-  val udfTimeSeriesPearson = udf { (v1: WrappedArray[Row], v2: WrappedArray[Row], startTime:LocalDateTime, totalHours:Int) =>
+  val udfTimeSeriesPearson = udf { (v1: WrappedArray[Row], v2: WrappedArray[Row], startTime:Timestamp, totalHours:Int) =>
     // converts the array items into tuples, sorts by first item and returns first two tuples:
     val a1 = v1.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
     val a2 = v2.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
@@ -60,12 +60,12 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     * @return Similarity measure
     */
   def compareTimeSeries(v1:List[(Timestamp, Int)], v2:List[(Timestamp, Int)],
-                        startTime:LocalDateTime, totalHours:Int,
+                        startTime:Timestamp, totalHours:Int,
                         isFiltered: Boolean, lambda: Double = 0.5): Double = {
 
 
     if (v1.isEmpty || v2.isEmpty) 0.0
-    else TimeSeriesUtils.compareTimeSeries(v1, v2, startTime, totalHours, isFiltered, lambda)
+    else TimeSeriesUtils.compareTimeSeries(v1, v2, startTime.toLocalDateTime, totalHours, isFiltered, lambda)
   }
 
   private def compareTimeSeriesPearsonUnsafe(v1: Array[Double], v2:Array[Double]): Double = {
@@ -76,10 +76,10 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     Math.max(0.0, c) // clip to 0, negative correlation means no interest for us
   }
 
-  def compareTimeSeriesPearson(v1:List[(Timestamp, Int)], v2:List[(Timestamp, Int)], startTime:LocalDateTime, totalHours:Int): Double =
+  def compareTimeSeriesPearson(v1:List[(Timestamp, Int)], v2:List[(Timestamp, Int)], startTime:Timestamp, totalHours:Int): Double =
   {
-    val vd1 = TimeSeriesUtils.densifyVisitList(v1, startTime, totalHours)
-    val vd2 = TimeSeriesUtils.densifyVisitList(v2, startTime, totalHours)
+    val vd1 = TimeSeriesUtils.densifyVisitList(v1, startTime.toLocalDateTime, totalHours)
+    val vd2 = TimeSeriesUtils.densifyVisitList(v2, startTime.toLocalDateTime, totalHours)
     if (v1.isEmpty || v2.isEmpty) 0.0
     else compareTimeSeriesPearsonUnsafe(vd1, vd2) * totalHours // use scaling to mimick behavior of compareTimeSeries
   }
@@ -185,7 +185,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     import session.implicits._
     //triplets columns = (src, edge, dst)
     // src/dst = source/destination vertex with attribute columns
-    val tt = g.triplets.withColumn("startTime", lit(startTime)).withColumn("totalHours", lit(totalHours))
+    val tt = g.triplets.withColumn("startTime", lit(Timestamp.valueOf(startTime))).withColumn("totalHours", lit(totalHours))
     val t = if (usePearson) tt.withColumn("weight", udfTimeSeriesPearson($"src.visits", $"dst.visits", $"startTime", $"totalHours"))
             else tt.withColumn("isFiltered", lit(isFiltered))
                    .withColumn("lambda", lit(lambda))

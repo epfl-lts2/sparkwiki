@@ -72,14 +72,14 @@ class PageStatsSpec extends FlatSpec with SparkSessionTestWrapper {
     val v1 = List((ts, 10))
     val v2 = List((ts, 20))
 
-    assert(pf.compareTimeSeries(v1, List[(Timestamp, Int)](), startTime, 1, isFiltered=true) === 0.0)
-    assert(pf.compareTimeSeries(List[(Timestamp, Int)](), v2, startTime, 1, isFiltered=true) === 0.0)
-    assert(pf.compareTimeSeries(List[(Timestamp, Int)](), List[(Timestamp, Int)](), startTime, 1, isFiltered=true) === 0.0)
+    assert(pf.compareTimeSeries(v1, List[(Timestamp, Int)](), ts, 1, isFiltered=true) === 0.0)
+    assert(pf.compareTimeSeries(List[(Timestamp, Int)](), v2, ts, 1, isFiltered=true) === 0.0)
+    assert(pf.compareTimeSeries(List[(Timestamp, Int)](), List[(Timestamp, Int)](), ts, 1, isFiltered=true) === 0.0)
     
 
-    assert(pf.compareTimeSeriesPearson(v1, List[(Timestamp, Int)](), startTime, 1) === 0.0)
-    assert(pf.compareTimeSeriesPearson(List[(Timestamp, Int)](), v2, startTime, 1) === 0.0)
-    assert(pf.compareTimeSeriesPearson(List[(Timestamp, Int)](), List[(Timestamp, Int)](), startTime, 1) === 0.0)
+    assert(pf.compareTimeSeriesPearson(v1, List[(Timestamp, Int)](), ts, 1) === 0.0)
+    assert(pf.compareTimeSeriesPearson(List[(Timestamp, Int)](), v2, ts, 1) === 0.0)
+    assert(pf.compareTimeSeriesPearson(List[(Timestamp, Int)](), List[(Timestamp, Int)](), ts, 1) === 0.0)
 
     val x = Array.fill(100)(Random.nextDouble)
     val y = x.map(-_)
