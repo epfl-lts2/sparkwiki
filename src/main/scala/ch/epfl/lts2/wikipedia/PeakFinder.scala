@@ -40,15 +40,15 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   val udfTimeSeriesSimilarity = udf { (v1: WrappedArray[Row], v2: WrappedArray[Row],
                                     startTime:Timestamp, totalHours:Int, isFiltered: Boolean, lambda:Double) =>
     // converts the array items into tuples, sorts by first item and returns first two tuples:
-    val a1 = v1.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
-    val a2 = v2.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
+    val a1 = Option(v1).getOrElse(WrappedArray.empty[Row]).map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
+    val a2 = Option(v2).getOrElse(WrappedArray.empty[Row]).map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
     compareTimeSeries(a1, a2, startTime, totalHours, isFiltered, lambda)
   }
 
   val udfTimeSeriesPearson = udf { (v1: WrappedArray[Row], v2: WrappedArray[Row], startTime:Timestamp, totalHours:Int) =>
     // converts the array items into tuples, sorts by first item and returns first two tuples:
-    val a1 = v1.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
-    val a2 = v2.map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
+    val a1 = Option(v1).getOrElse(WrappedArray.empty[Row]).map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
+    val a2 = Option(v2).getOrElse(WrappedArray.empty[Row]).map(r => (r.getAs[Timestamp](0), r.getAs[Int](1))).toList
     compareTimeSeriesPearson(a1, a2, startTime, totalHours)
                                  }
   /**

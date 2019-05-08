@@ -75,6 +75,7 @@ class PageStatsSpec extends FlatSpec with SparkSessionTestWrapper {
     assert(pf.compareTimeSeries(v1, List[(Timestamp, Int)](), ts, 1, isFiltered=true) === 0.0)
     assert(pf.compareTimeSeries(List[(Timestamp, Int)](), v2, ts, 1, isFiltered=true) === 0.0)
     assert(pf.compareTimeSeries(List[(Timestamp, Int)](), List[(Timestamp, Int)](), ts, 1, isFiltered=true) === 0.0)
+
     
 
     assert(pf.compareTimeSeriesPearson(v1, List[(Timestamp, Int)](), ts, 1) === 0.0)
