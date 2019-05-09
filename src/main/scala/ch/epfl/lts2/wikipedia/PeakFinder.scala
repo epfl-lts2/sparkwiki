@@ -36,6 +36,13 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   lazy val session: SparkSession = SparkSession.builder.config(sparkConfig).getOrCreate()
 
 
+  private def unextendTimeSeries(inputExtended:Dataset[PageVisitGroup], startDate:LocalDate):Dataset[PageVisitGroup] = {
+    import session.implicits._
+    val startTs = Timestamp.valueOf(startDate.atStartOfDay.minusNanos(1))
+    inputExtended.map(p => PageVisitGroup(p.page_id, p.visits.filter(v => v._1.after(startTs))) ).cache()
+  }
+
+
   /**
     * Computes similarity of two time-series
     * @param v1 Time-series of edge start
@@ -90,13 +97,13 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
          .map(p => PageStatRow(p._1, p._2.mean, p._2.variance))    
   }
   
-  def extractPeakActivity(input: Dataset[PageVisitGroup], startDate:LocalDate, endDate:LocalDate, inputExtended: Dataset[PageVisitGroup], startDateExtend:LocalDate,
+  def extractPeakActivity(startDate:LocalDate, endDate:LocalDate, inputExtended: Dataset[PageVisitGroup], startDateExtend:LocalDate,
                           burstRate:Double, burstCount:Int):Dataset[Long] = {
     import session.implicits._
 
     val pageStats = getStats(inputExtended, startDateExtend, endDate)
     val pageThr = getStatsThreshold(pageStats, burstRate)
-    
+    val input = unextendTimeSeries(inputExtended, startDate)
     val inputGrp = input.join(pageThr, "page_id")
                         .as[PageVisitThrGroup]
     
@@ -114,7 +121,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   def extractPeakActivityZscore(startDate:LocalDate, endDate:LocalDate, inputExtended: Dataset[PageVisitGroup], startDateExtend:LocalDate,
                           lag: Int, threshold: Double, influence: Double, activityThreshold:Int, saveOutput:Boolean=false): Dataset[Long] = {
     import session.implicits._
-    val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
     val startTime = startDateExtend.atStartOfDay
     val totalHours = getPeriodHours(startDateExtend, endDate)
     val extensionHours = getPeriodHours(startDateExtend, startDate.minusDays(1)) // do not remove first day of studied period
@@ -148,9 +155,10 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   
   
   def getVisitsTimeSeriesGroup(startDate:LocalDate, endDate:LocalDate):Dataset[PageVisitGroup] = getVisitsTimeSeriesGroup(session, keySpace, tableVisits, tableMeta, startDate, endDate)
-  def getActiveTimeSeries(timeSeries:Dataset[PageVisitGroup], activeNodes:Dataset[Long]):Dataset[(Long, List[(Timestamp, Int)])] = {
+  def getActiveTimeSeries(timeSeries:Dataset[PageVisitGroup], activeNodes:Dataset[Long], startDate:LocalDate):Dataset[(Long, List[(Timestamp, Int)])] = {
     import session.implicits._
-    timeSeries.join(activeNodes.toDF("page_id"), "page_id").as[PageVisitGroup].map(p => (p.page_id, p.visits))
+    val input = unextendTimeSeries(timeSeries, startDate)
+    input.join(activeNodes.toDF("page_id"), "page_id").as[PageVisitGroup].map(p => (p.page_id, p.visits))
   }
   
   
@@ -182,13 +190,13 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
       // retrieve visits time series plus history of equal length
       val visitsExtend = Period.between(startDate, endDate).getDays
       val startDateExtend = startDate.minusDays(visitsExtend)
-      val extendedTimeSeries = pf.getVisitsTimeSeriesGroup(startDateExtend, endDate)
-      val filteredTimeSeries = pf.getVisitsTimeSeriesGroup(startDate, endDate)
+      val extendedTimeSeries = pf.getVisitsTimeSeriesGroup(startDateExtend, endDate).cache()
+
       val totalHours = pf.getPeriodHours(startDate, endDate)
       val startTime = startDate.atStartOfDay
 
       val activePages = if (!activityZscore)
-                            pf.extractPeakActivity(filteredTimeSeries, startDate, endDate,
+                            pf.extractPeakActivity(startDate, endDate,
                                                    extendedTimeSeries, startDateExtend,
                                                    burstRate = cfg.getDouble("peakfinder.burstRate"),
                                                    burstCount = cfg.getInt("peakfinder.burstCount"))
@@ -200,7 +208,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
                                                          activityThreshold = cfg.getInt("peakfinder.zscore.activityThreshold"),
                                                          saveOutput = cfg.getBoolean("peakfinder.zscore.saveOutput"))
 
-      val activeTimeSeries = pf.getActiveTimeSeries(filteredTimeSeries, activePages)//.cache()
+      val activeTimeSeries = pf.getActiveTimeSeries(extendedTimeSeries, activePages, startDate)//.cache()
       
       
 
