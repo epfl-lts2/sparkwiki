@@ -221,7 +221,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
                                                 .mapVertices((_, v) => v._1)
                             else
                                 activePagesGraph.mapTriplets(t => pf.compareTimeSeries(t.dstAttr, t.srcAttr, startTime, totalHours,
-                                                                                       isFiltered = true, lambda = 0.5))
+                                                                                       isFiltered = false, lambda = 0.5))
                                                 .mapVertices((_, v) => v._1)
 
       val prunedGraph = GraphUtils.removeLowWeightEdges(trainedGraph, minWeight = cfg.getDouble("peakfinder.minEdgeWeight"))

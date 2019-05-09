@@ -36,13 +36,14 @@ object TimeSeriesUtils {
                         isFiltered: Boolean = true, lambda: Double = 0.5): Double = {
 
 
-    val m1Freq = if (isFiltered) v1Visits.size.toDouble else 1.0
-    val m2Freq = if (isFiltered) v2Visits.size.toDouble else 1.0
+
 
     val v1 = densifyVisitList(v1Visits, startTime, totalHours)
     val v2 = densifyVisitList(v2Visits, startTime, totalHours)
-    val v1Cnt = removeDailyVariations(v1).map(_/m1Freq)
-    val v2Cnt = removeDailyVariations(v2).map(_/m2Freq)
+    val mFreq = if (isFiltered) totalHours else 1.0
+
+    val v1Cnt = removeDailyVariations(v1).map(_/mFreq)
+    val v2Cnt = removeDailyVariations(v2).map(_/mFreq)
 
     val vPairs =  v1Cnt.zip(v2Cnt)
     val similarity = vPairs.map(p => scala.math.min(p._1, p._2) / scala.math.max(p._1, p._2))
