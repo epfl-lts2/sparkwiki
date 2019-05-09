@@ -101,14 +101,19 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
          .map(p => (p.page_id, meanAndVariance(new VectorBuilder(p.visits.map(f => f._1).toArray, p.visits.map(f => f._2).toArray, p.visits.size, totalHours).toDenseVector)))
          .map(p => PageStatRow(p._1, p._2.mean, p._2.variance))    
   }
-  
-  def extractPeakActivity(input: Dataset[PageVisitGroup], startDate:LocalDate, endDate:LocalDate, inputExtended: Dataset[PageVisitGroup], startDateExtend:LocalDate,
+
+  private def unextendTimeSeries(inputExtended:Dataset[PageVisitGroup], startDate:LocalDate):Dataset[PageVisitGroup] = {
+    import session.implicits._
+    val startTs = Timestamp.valueOf(startDate.atStartOfDay.minusNanos(1))
+    inputExtended.map(p => PageVisitGroup(p.page_id, p.visits.filter(v => v._1.after(startTs))) ).cache()
+  }
+
+  def extractPeakActivity(startDate:LocalDate, endDate:LocalDate, inputExtended: Dataset[PageVisitGroup], startDateExtend:LocalDate,
                           burstRate:Double, burstCount:Int):Dataset[Long] = {
     import session.implicits._
-
     val pageStats = getStats(inputExtended, startDateExtend, endDate)
     val pageThr = getStatsThreshold(pageStats, burstRate)
-    
+    val input = unextendTimeSeries(inputExtended, startDate)
     val inputGrp = input.join(pageThr, "page_id")
                         .as[PageVisitThrGroup]
     
@@ -163,9 +168,10 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   
   
   def getVisitsTimeSeriesGroup(startDate:LocalDate, endDate:LocalDate):Dataset[PageVisitGroup] = getVisitsTimeSeriesGroup(session, keySpace, tableVisits, tableMeta, startDate, endDate)
-  def getActiveTimeSeries(timeSeries:Dataset[PageVisitGroup], activeNodes:Dataset[Long]):Dataset[PageVisitGroup]= {
+  def getActiveTimeSeries(timeSeries:Dataset[PageVisitGroup], activeNodes:Dataset[Long], startDate:LocalDate):Dataset[PageVisitGroup]= {
     import session.implicits._
-    timeSeries.join(activeNodes.toDF("page_id"), "page_id").as[PageVisitGroup]//.map(p => (p.page_id, p.visits))
+    val input = unextendTimeSeries(timeSeries, startDate)
+    input.join(activeNodes.toDF("page_id"), "page_id").as[PageVisitGroup]//.map(p => (p.page_id, p.visits))
   }
 
   def toWeightedUndirected(g: GraphFrame):GraphFrame = {
@@ -184,9 +190,8 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
 
   def computeEdgeWeights(g:GraphFrame, usePearson:Boolean, startTime:LocalDateTime, totalHours:Int, isFiltered:Boolean=true, lambda:Double=0.5):GraphFrame =  {
     import session.implicits._
-    //triplets columns = (src, edge, dst)
-    // src/dst = source/destination vertex with attribute columns
-    val tt = g.triplets.withColumn("startTime", lit(Timestamp.valueOf(startTime))).withColumn("totalHours", lit(totalHours))
+    val startTs = Timestamp.valueOf(startTime)
+    val tt = g.triplets.withColumn("startTime", lit(startTs)).withColumn("totalHours", lit(totalHours))
     val t = if (usePearson) tt.withColumn("weight", udfTimeSeriesPearson($"src.visits", $"dst.visits", $"startTime", $"totalHours"))
             else tt.withColumn("isFiltered", lit(isFiltered))
                    .withColumn("lambda", lit(lambda))
@@ -199,12 +204,15 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     import session.implicits._
     session.sparkContext.setCheckpointDir("/tmp") // required by connected components
     val cc = g.connectedComponents
+              .setIntermediateStorageLevel(StorageLevel.MEMORY_ONLY)
+              .setCheckpointInterval(-1)
               .setAlgorithm("graphx") // this one seems to run faster for our use
               .run()
     // get largest component id
     val lc = cc.groupBy($"component").count.orderBy(desc("count")).first.getLong(0)
+
     val vert = cc.filter($"component" === lc).drop("component")
-    GraphFrame(vert.drop("component"), g.edges).dropIsolatedVertices()
+    GraphFrame(vert, g.edges)
   }
 }
   
@@ -234,13 +242,13 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
       // retrieve visits time series plus history of equal length
       val visitsExtend = Period.between(startDate, endDate).getDays
       val startDateExtend = startDate.minusDays(visitsExtend)
-      val extendedTimeSeries = pf.getVisitsTimeSeriesGroup(startDateExtend, endDate)
-      val filteredTimeSeries = pf.getVisitsTimeSeriesGroup(startDate, endDate)
+      val extendedTimeSeries = pf.getVisitsTimeSeriesGroup(startDateExtend, endDate).cache()
+
       val totalHours = pf.getPeriodHours(startDate, endDate)
       val startTime = startDate.atStartOfDay
 
       val activePages = if (!activityZscore)
-                            pf.extractPeakActivity(filteredTimeSeries, startDate, endDate,
+                            pf.extractPeakActivity(startDate, endDate,
                                                    extendedTimeSeries, startDateExtend,
                                                    burstRate = cfg.getDouble("peakfinder.burstRate"),
                                                    burstCount = cfg.getInt("peakfinder.burstCount"))
@@ -252,7 +260,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
                                                          activityThreshold = cfg.getInt("peakfinder.zscore.activityThreshold"),
                                                          saveOutput = cfg.getBoolean("peakfinder.zscore.saveOutput"))
 
-      val activeTimeSeries = pf.getActiveTimeSeries(filteredTimeSeries, activePages).withColumnRenamed("page_id", "id")//.cache()
+      val activeTimeSeries = pf.getActiveTimeSeries(extendedTimeSeries, activePages, startDate).withColumnRenamed("page_id", "id")//.cache()
       
       
       val gf = pf.toWeightedUndirected(pf.extractActiveSubGraph(activePages))
