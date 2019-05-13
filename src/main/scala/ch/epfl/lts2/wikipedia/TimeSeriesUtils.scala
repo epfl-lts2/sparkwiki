@@ -20,6 +20,13 @@ object TimeSeriesUtils {
                                v.map(_._2.toDouble).toArray, v.size, totalHours).toDenseVector
     vd.toArray
   }
+
+  def _compareTimeSeries(v1:Array[Double], v2:Array[Double], lambda:Double = 0.5):Double = {
+    val vPairs =  v1.zip(v2)
+    val similarity = vPairs.map(p => scala.math.min(p._1, p._2) / scala.math.max(p._1, p._2))
+                     .filter(v => !v.isNaN && v > lambda)
+    if (similarity.isEmpty) 0 else similarity.sum
+  }
   /**
     * Computes similarity of two time-series
     *
@@ -35,21 +42,13 @@ object TimeSeriesUtils {
                         startTime:LocalDateTime, totalHours:Int,
                         isFiltered: Boolean = true, lambda: Double = 0.5): Double = {
 
-
-
-
     val v1 = densifyVisitList(v1Visits, startTime, totalHours)
     val v2 = densifyVisitList(v2Visits, startTime, totalHours)
     val mFreq = if (isFiltered) totalHours else 1.0
 
-    val v1Cnt = removeDailyVariations(v1).map(_/mFreq)
-    val v2Cnt = removeDailyVariations(v2).map(_/mFreq)
-
-    val vPairs =  v1Cnt.zip(v2Cnt)
-    val similarity = vPairs.map(p => scala.math.min(p._1, p._2) / scala.math.max(p._1, p._2))
-                           .filter(v => !v.isNaN && v > lambda)
-    if (similarity.isEmpty) 0 else similarity.sum
-
+    val v1Cnt = removeDailyVariations(v1).map(_/mFreq).map(scala.math.max(_, 0.0)) // do not allow negative visits count
+    val v2Cnt = removeDailyVariations(v2).map(_/mFreq).map(scala.math.max(_, 0.0))
+    _compareTimeSeries(v1Cnt, v2Cnt)
   }
 
   /**

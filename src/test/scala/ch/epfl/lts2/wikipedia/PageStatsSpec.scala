@@ -86,6 +86,11 @@ class PageStatsSpec extends FlatSpec with SparkSessionTestWrapper {
     val y = x.map(-_)
     assert(TimeSeriesUtils.pearsonCorrelation(x, x) === 1.0)
     assert(TimeSeriesUtils.pearsonCorrelation(x, y) === -1.0)
+
+    assert(TimeSeriesUtils._compareTimeSeries(x, x) === 100.0)
+    assert(TimeSeriesUtils._compareTimeSeries(x, x, 2.0) === 0.0)
+    assert(TimeSeriesUtils._compareTimeSeries(x, y, -2.0) === -100.0)
+    assert(TimeSeriesUtils._compareTimeSeries(x, y, 0.5) === 0.0)
   }
 }
 
