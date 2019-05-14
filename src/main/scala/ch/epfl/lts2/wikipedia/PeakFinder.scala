@@ -155,10 +155,14 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   
   
   def getVisitsTimeSeriesGroup(startDate:LocalDate, endDate:LocalDate):Dataset[PageVisitGroup] = getVisitsTimeSeriesGroup(session, keySpace, tableVisits, tableMeta, startDate, endDate)
-  def getActiveTimeSeries(timeSeries:Dataset[PageVisitGroup], activeNodes:Dataset[Long], startDate:LocalDate):Dataset[(Long, List[(Timestamp, Int)])] = {
+  def getActiveTimeSeries(timeSeries:Dataset[PageVisitGroup], activeNodes:Dataset[Long], startDate:LocalDate, totalHours:Int, dailyMinThreshold:Int):Dataset[(Long, List[(Timestamp, Int)])] = {
     import session.implicits._
     val input = unextendTimeSeries(timeSeries, startDate)
-    input.join(activeNodes.toDF("page_id"), "page_id").as[PageVisitGroup].map(p => (p.page_id, p.visits))
+
+    val activeTimeSeries = input.join(activeNodes.toDF("page_id"), "page_id").as[PageVisitGroup]//.map(p => (p.page_id, p.visits))
+    activeTimeSeries.map(p => (p, TimeSeriesUtils.densifyVisitList(p.visits, startDate.atStartOfDay, totalHours).grouped(24).map(_.sum).max))
+                                           .filter(_._2 >= dailyMinThreshold)
+                                           .map(p => (p._1.page_id, p._1.visits))
   }
   
   
@@ -208,9 +212,9 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
                                                          activityThreshold = cfg.getInt("peakfinder.zscore.activityThreshold"),
                                                          saveOutput = cfg.getBoolean("peakfinder.zscore.saveOutput"))
 
-      val activeTimeSeries = pf.getActiveTimeSeries(extendedTimeSeries, activePages, startDate)//.cache()
-      
-      
+      val activeTimeSeries = pf.getActiveTimeSeries(extendedTimeSeries, activePages, startDate,
+                                                    totalHours = totalHours,
+                                                    dailyMinThreshold = cfg.getInt("peakfinder.dailyMinThreshold"))//.cache()
 
       val activePagesGraph = GraphUtils.toUndirected(pf.extractActiveSubGraph(activePages).outerJoinVertices(activeTimeSeries.rdd)((_, title, visits) => (title, visits)), pf.mergeEdges)
 
