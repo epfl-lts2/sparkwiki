@@ -33,15 +33,15 @@ class WikipediaPageParser extends Serializable with WikipediaElementParser[Wikip
 `page_content_model` varbinary(32) DEFAULT NULL,
 `page_lang` varbinary(35) DEFAULT NULL,
    */
-  val pageRegex = """\((\d+),(\d+),'(.*?)','(.*?)',(\d+),([01]),([01]),([\d\.]+?),'(\d{14})',(.*?),(\d+),(\d+),(.*?),(.*?)\)""".r
+  val pageRegex = """\((\d+),(\d+),'(.*?)','(.*?)',([01]),([01]),([\d\.]+?),'(\d{14})',(.*?),(\d+),(\d+),(.*?),(.*?)\)""".r
   val timestampFormat = new SimpleDateFormat("yyyyMMddHHmmss") 
   def parseLine(lineInput:String):List[WikipediaPage] = {
   
     val r = pageRegex.findAllIn(lineInput).matchData.toList
-    r.map(m =>  WikipediaPage(m.group(1).toInt, m.group(2).toInt, m.group(3), m.group(4), m.group(5).toInt,
-                        m.group(6).toInt == 1, m.group(7).toInt == 1, m.group(8).toDouble, 
-                        new Timestamp(timestampFormat.parse(m.group(9)).getTime), m.group(10), m.group(11).toInt, 
-                        m.group(12).toInt, m.group(13), m.group(14)))
+    r.map(m =>  WikipediaPage(m.group(1).toInt, m.group(2).toInt, m.group(3), m.group(4),
+                        m.group(5).toInt == 1, m.group(6).toInt == 1, m.group(7).toDouble, 
+                        new Timestamp(timestampFormat.parse(m.group(8)).getTime), m.group(9), m.group(10).toInt, 
+                        m.group(11).toInt, m.group(12), m.group(13)))
       
   }
     
