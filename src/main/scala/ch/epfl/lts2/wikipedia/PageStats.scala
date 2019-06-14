@@ -1,36 +1,27 @@
 package ch.epfl.lts2.wikipedia
 
-import java.time._
+import java.io.File
 import java.sql.Timestamp
-import org.rogach.scallop._
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{SQLContext, Row, SparkSession, Dataset}
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.cassandra
-import com.datastax.spark.connector._
+import java.time._
+
 import breeze.linalg._
-import breeze.numerics._
 import breeze.stats._
+import com.typesafe.config.ConfigFactory
+import org.apache.spark.SparkConf
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{Dataset, SparkSession}
 
 case class PageStatRow(page_id:Long, mean:Double, variance:Double)
 case class PageVisitElapsed(page_id:Long, elapsed_hours:Int, count:Double)
 case class PagecountMetadata(start_time:Timestamp, end_time:Timestamp)
 
-class PageStatsConf(args:Seq[String]) extends ScallopConf(args) with Serialization {
-  val dbHost = opt[String](required=true, name="dbHost")
-  val dbPort = opt[Int](required=true, name="dbPort", default=Some[Int](9042))
-  val keySpace = opt[String](required=true, name="keySpace")
-  val tableVisits = opt[String](required=true, name="tableVisits")
-  val tableStats = opt[String](required=true, name="tableStats")
-  val tableMeta = opt[String](required=true, name="tableMeta")
-  verify()
-}
 
-class PageStats(val dbHost:String, val dbPort:Int) extends PageCountStatsLoader with Serializable {
+class PageStats(val dbHost:String, val dbPort:Int, val dbUsername:String, val dbPassword:String) extends PageCountStatsLoader with Serializable {
   lazy val sconf = new SparkConf().setAppName("Wikipedia pagestats computation")
-        .set("spark.cassandra.connection.host", dbHost) // TODO use auth 
+        .set("spark.cassandra.connection.host", dbHost)
         .set("spark.cassandra.connection.port", dbPort.toString)
+        .set("spark.cassandra.auth.username", dbUsername)
+        .set("spark.cassandra.auth.password", dbPassword)
        
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
   
@@ -55,12 +46,13 @@ class PageStats(val dbHost:String, val dbPort:Int) extends PageCountStatsLoader 
   
   def updateStats(keySpace:String, tableVisits:String, tableStats:String, tableMeta:String) = {
     import session.implicits._
-    val meta = loadMetadata(session, keySpace, tableMeta) 
-    
-    val visitsPeriod = Duration.between(meta.start_time.toInstant, meta.end_time.toInstant)
+    val meta = loadMetadata(session, keySpace, tableMeta).collect()
+    val min_start_time = meta.map(m => m.start_time.toInstant).min
+    val max_end_time = meta.map(m => m.end_time.toInstant).max
+    val visitsPeriod = Duration.between(min_start_time, max_end_time)
     val totalHours = visitsPeriod.toHours.toInt
     
-    val visitData = getVisits(session, keySpace, tableVisits).map(p => PageVisitElapsed(p.page_id, Duration.between(meta.start_time.toInstant, p.visit_time.toInstant).toHours.toInt, p.count))
+    val visitData = getVisits(session, keySpace, tableVisits).map(p => PageVisitElapsed(p.page_id, Duration.between(min_start_time, p.visit_time.toInstant).toHours.toInt, p.count))
     
     val visitGrp = visitData.groupBy("page_id")
                          .agg(collect_list("elapsed_hours") as "elapsed_hours", collect_list("count") as "count")
@@ -77,9 +69,13 @@ class PageStats(val dbHost:String, val dbPort:Int) extends PageCountStatsLoader 
 
 object PageStats {
   def main(args:Array[String]) = {
-    val cfg = new PageStatsConf(args)
-    val ps = new PageStats(cfg.dbHost(), cfg.dbPort())
+    val cfgBase = new ConfigFileOpt(args)
+    val cfgDefault = ConfigFactory.parseString("cassandra.db.port=9042")
+    val cfg = ConfigFactory.parseFile(new File(cfgBase.cfgFile())).withFallback(cfgDefault)
+    val ps = new PageStats(cfg.getString("cassandra.db.host"), cfg.getInt("cassandra.db.port"),
+                          cfg.getString("cassandra.db.username"), cfg.getString("cassandra.db.password"))
     
-    ps.updateStats(cfg.keySpace(), cfg.tableVisits(), cfg.tableStats(), cfg.tableMeta())
+    ps.updateStats(cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"),
+                   cfg.getString("cassandra.db.tableStats"), cfg.getString("cassandra.db.tableMeta"))
   }
 }

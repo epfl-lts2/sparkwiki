@@ -155,12 +155,20 @@ The query below will create a keyspace for a single-node environment.
 
 If you want to configure a multi-node environment, read more about replication strategies [here](https://docs.datastax.com/en/cql/3.3/cql/cql_reference/cqlCreateKeyspace.html).
 
-#### 4.5 Create table to import pagecounts
-`CREATE TABLE wikipedia.page_visits (
+#### 4.5 Create tables to import pagecounts
+`
+CREATE TABLE wikipedia.page_visits (
     page_id bigint,
     visit_time timestamp,
     count int,
     PRIMARY KEY (page_id, visit_time));
+`
+
+`
+CREATE TABLE wikipedia.pagecount_metadata (
+    start_time timestamp,
+    end_time timestamp,
+    PRIMARY KEY (start_time, end_time));
 `
 #### 4.6 Exit `cqlsh`
 
@@ -196,17 +204,14 @@ spark-submit
 --executor-memory 10g 
 --driver-memory 10g 
 --packages     org.rogach:scallop_2.11:3.1.5,
-               com.datastax.spark:spark-cassandra-connector_2.11:2.4.0
-               <SPARKWIKI LOCATION>/sparkwiki/target/scala-2.11/sparkwiki_2.11-0.8.5.jar 
+               com.datastax.spark:spark-cassandra-connector_2.11:2.4.0,
+               com.typesafe:config:1.3.3
+               <SPARKWIKI LOCATION>/sparkwiki/target/scala-2.11/sparkwiki_2.11-0.8.6.jar
+--config <SPARKWIKI LOCATION>/sparkwiki/config/pagecount.conf
 --basePath /mnt/data/wikipedia/pagecounts/2018/2018-08
 --startDate 2018-08-01
 --endDate 2018-08-31
---pageDump /mnt/data/wikipedia/page.parquet 
---minDailyVisits 100
---dbHost 127.0.0.1
---keySpace wikipedia
---table page_visits
---minDailyVisitsHourSplit 0
+--pageDump /mnt/data/wikipedia/page.parquet
 ```
 
 #### 4.9 Verify the import. Show the table with pagecounts

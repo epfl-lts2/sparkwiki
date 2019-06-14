@@ -71,17 +71,12 @@ filter the counts belonging to *en.z* (english wikipedia project) and having mor
 and save the result to a cassandra DB, after resolving page ids (either a SQL page dump or a processed SQL page dump (as parquet) must be supplied via the `pageDump` argument).
 
 **Arguments**:
+* `--config` path to configuration file (cf. *config* folder for a sample)
 * `--basePath` directory containing pagecounts files
 * `--startDate` first day to process, formatted as `yyyy-MM-dd`, e.g. 2018-08-03
 * `--endDate` last day to process,  formatted as `yyyy-MM-dd`
 * `--pageDump` path to a page SQL dump or a version processed by *DumpParser* and saved as parquet
-* `--minDailyVisits` minimum number of daily visit for a page to be considered (default=100)
-* `--minDailyVisitsHourSplit` minimum number of daily visits to parse hourly visits record (default=10000)
-* `--keepRedirects` if supplied, will process visits of pages marked as /redirect/
-* `--dbHost` name or IP address of the Cassandra server
-* `--dbPort` port number on which Cassandra server runs (default = 9042)
-* `--keySpace` keyspace for saving the output
-* `--table` destination table for output
+
 
 ### License
 

@@ -1,32 +1,26 @@
 package ch.epfl.lts2.wikipedia
 
+import java.io.File
+import java.nio.file.Paths
+import java.sql.Timestamp
 import java.time._
 import java.time.format.DateTimeFormatter
-import java.sql.Timestamp
-import java.nio.file.Paths
-import org.rogach.scallop._
+
+import com.typesafe.config.ConfigFactory
+import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{SQLContext, Row, SparkSession, Dataset}
-import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.cassandra._
-import com.datastax.spark.connector._
+import org.apache.spark.sql.{Dataset, SparkSession}
+import org.rogach.scallop._
 
     
 
 class PagecountConf(args: Seq[String]) extends ScallopConf(args) with Serialization {
+  val cfgFile = opt[String](name="config", required=true)
   val basePath = opt[String](required = true, name="basePath")
   val startDate = opt[LocalDate](required = true, name="startDate")(singleArgConverter[LocalDate](LocalDate.parse(_)))
   val endDate = opt[LocalDate](required = true, name="endDate")(singleArgConverter[LocalDate](LocalDate.parse(_)))
   val pageDump = opt[String](required=true, name="pageDump")
-  val dbHost = opt[String](required=true, name="dbHost")
-  val dbPort = opt[Int](required=true, name="dbPort", default=Some[Int](9042))
-  val keySpace = opt[String](required=true, name="keySpace")
-  val table = opt[String](required=true, name="table")
-  val tableMeta = opt[String](name="tableMeta")
-  val minDailyVisits = opt[Int](required=true, name="minDailyVisits", default=Some[Int](100))
-  val minDailVisitsHourSplit = opt[Int](required=true, name="minDailyVisitsHourSplit", default=Some[Int](10000))
-  val keepRedirects = toggle(name="keepRedirects", default=Some(false))
   verify()
 }
 
@@ -37,10 +31,12 @@ case class PageVisitsIdFull(title: String, namespace:Int, id:Int, visits:List[Vi
 case class PageVisitsId(id:Int, visits:List[Visit])
 case class PageVisitRow(page_id:Long, visit_time: Timestamp, count:Int)
 
-class PagecountProcessor(val dbHost:String, val dbPort:Int) extends Serializable with JsonWriter with CsvWriter {
+class PagecountProcessor(val dbHost:String, val dbPort:Int, val dbUsername:String, val dbPassword:String) extends Serializable with JsonWriter with CsvWriter {
   lazy val sconf = new SparkConf().setAppName("Wikipedia pagecount processor")
-        .set("spark.cassandra.connection.host", dbHost) // TODO use auth 
+        .set("spark.cassandra.connection.host", dbHost)
         .set("spark.cassandra.connection.port", dbPort.toString)
+        .set("spark.cassandra.auth.username", dbUsername)
+        .set("spark.cassandra.auth.password", dbPassword)
        
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
   val parser = new WikipediaPagecountParser
@@ -88,12 +84,12 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int) extends Serializable
     }
   }
   
-  def writeToDb(data:Dataset[PageVisitRow], keyspace:String, table:String) = {
+  def writeToDb(data:Dataset[PageVisitRow], keyspace:String, tableVisits:String) = {
     data.write
          .format("org.apache.spark.sql.cassandra")
          .option("confirm.truncate","true")
          .option("keyspace", keyspace)
-         .option("table", table)
+         .option("table", tableVisits)
          .mode("append")
          .save()
   }
@@ -116,14 +112,9 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int) extends Serializable
   
   def updateMeta(keyspace:String, tableMeta:String, startDate:LocalDate, endDate:LocalDate) = {
     import session.implicits._
-    val current = session.read
-           .format("org.apache.spark.sql.cassandra")
-           .options(Map("table"->tableMeta, "keyspace"->keyspace))
-           .load().as[PagecountMetadata]
-           .first()
-           
-    val updated = PagecountMetadata(getEarliestDate(current.start_time, startDate), getLatestDate(current.end_time, endDate))
-    val updatedData = session.sparkContext.parallelize(Seq(updated)).toDF.as[PagecountMetadata]
+
+    val newData = PagecountMetadata(Timestamp.valueOf(startDate.atStartOfDay), Timestamp.valueOf(endDate.atStartOfDay))
+    val updatedData = session.sparkContext.parallelize(Seq(newData)).toDF.as[PagecountMetadata]
     updatedData.write
               .format("org.apache.spark.sql.cassandra")
               .option("keyspace", keyspace)
@@ -140,33 +131,35 @@ object PagecountProcessor {
   val flatten = udf((xs: Seq[Seq[Visit]]) => xs.flatten) // helper function
   
   def main(args:Array[String]):Unit = {
-    val cfg = new PagecountConf(args)
+    val cfgBase = new PagecountConf(args)
+    val cfgDefault = ConfigFactory.parseString("cassandra.db.port=9042,pagecountProcessor.keepRedirects=false")
+    val cfg = ConfigFactory.parseFile(new File(cfgBase.cfgFile())).withFallback(cfgDefault)
+
     
-    val pgCountProcessor = new PagecountProcessor(cfg.dbHost(), cfg.dbPort())
+    val pgCountProcessor = new PagecountProcessor(cfg.getString("cassandra.db.host"), cfg.getInt("cassandra.db.port"),
+                                                  cfg.getString("cassandra.db.username"), cfg.getString("cassandra.db.password"))
     
-    val range = pgCountProcessor.dateRange(cfg.startDate(), cfg.endDate(), Period.ofDays(1))
-    val files = range.map(d => (d, Paths.get(cfg.basePath(), "pagecounts-" + d.format(dateFormatter) + ".bz2").toString)).toMap
+    val range = pgCountProcessor.dateRange(cfgBase.startDate(), cfgBase.endDate(), Period.ofDays(1))
+    val files = range.map(d => (d, Paths.get(cfgBase.basePath(), "pagecounts-" + d.format(dateFormatter) + ".bz2").toString)).toMap
     val pgInputRdd = files.mapValues(p => pgCountProcessor.session.sparkContext.textFile(p))
     
     import pgCountProcessor.session.implicits._
-    val pcRdd = pgInputRdd.transform((d, p) => pgCountProcessor.parseLinesToDf(p, cfg.minDailyVisits(), cfg.minDailVisitsHourSplit(), d))
+    val pcRdd = pgInputRdd.transform((d, p) => pgCountProcessor.parseLinesToDf(p, cfg.getInt("pagecountProcessor.minDailyVisits"), cfg.getInt("pagecountProcessor.minDailVisitsHourSplit"), d))
     val dfVisits = pcRdd.values.reduce((p1, p2) => p1.union(p2)) // group all rdd's into one
     
     
     
-    val pgDf = pgCountProcessor.getPageDataFrame(cfg.pageDump())
-                               .filter(p => cfg.keepRedirects() || !p.isRedirect)
+    val pgDf = pgCountProcessor.getPageDataFrame(cfgBase.pageDump())
+                               .filter(p => cfg.getBoolean("pagecountProcessor.keepRedirects") || !p.isRedirect)
                                
     // join page and page count
     val pcDfId = pgCountProcessor.mergePagecount(pgDf, dfVisits)
                      .groupBy("id")
                      .agg(flatten(collect_list("visits")).alias("visits")).as[PageVisitsId]
     val pgVisitRows = pcDfId.flatMap(p => p.visits.map(v => PageVisitRow(p.id, v.time, v.count)))
-    //pcDfId.show()
-    //pgCountProcessor.writeCsv(pgVisitRows.map(p => (p.page_id, p.visit_time.toString, p.count)).toDF(), cfg.outputPath())
-    //pgCountProcessor.writeJson(pcDfId, cfg.outputPath(), true)
-    pgCountProcessor.writeToDb(pgVisitRows, cfg.keySpace(), cfg.table())
-    if (cfg.tableMeta.isSupplied)
-      pgCountProcessor.updateMeta(cfg.keySpace(), cfg.tableMeta(), cfg.startDate(), cfg.endDate())
+
+    pgCountProcessor.writeToDb(pgVisitRows, cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"))
+    if (cfg.hasPath("cassandra.db.tableMeta"))
+      pgCountProcessor.updateMeta(cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableMeta"), cfgBase.startDate(), cfgBase.endDate())
   }
 }
