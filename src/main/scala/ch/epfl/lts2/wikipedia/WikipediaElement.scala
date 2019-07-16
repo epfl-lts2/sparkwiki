@@ -27,7 +27,7 @@ object WikipediaNamespace extends Enumeration {
 abstract class WikipediaElement extends Serializable
 
 
-case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String, counter:Int, 
+case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String, 
                           isRedirect:Boolean, isNew:Boolean, random:Double, touched:Timestamp, linksUpdated:String,
                           latest:Int, len:Int, contentModel:String, lang:String) extends WikipediaElement 
                           
