@@ -144,7 +144,7 @@ object PagecountProcessor {
     val pgInputRdd = files.mapValues(p => pgCountProcessor.session.sparkContext.textFile(p))
     
     import pgCountProcessor.session.implicits._
-    val pcRdd = pgInputRdd.transform((d, p) => pgCountProcessor.parseLinesToDf(p, cfg.getInt("pagecountProcessor.minDailyVisits"), cfg.getInt("pagecountProcessor.minDailVisitsHourSplit"), d))
+    val pcRdd = pgInputRdd.transform((d, p) => pgCountProcessor.parseLinesToDf(p, cfg.getInt("pagecountProcessor.minDailyVisits"), cfg.getInt("pagecountProcessor.minDailyVisitsHourlySplit"), d))
     val dfVisits = pcRdd.values.reduce((p1, p2) => p1.union(p2)) // group all rdd's into one
     
     
