@@ -21,6 +21,7 @@ class PagecountConf(args: Seq[String]) extends ScallopConf(args) with Serializat
   val startDate = opt[LocalDate](required = true, name="startDate")(singleArgConverter[LocalDate](LocalDate.parse(_)))
   val endDate = opt[LocalDate](required = true, name="endDate")(singleArgConverter[LocalDate](LocalDate.parse(_)))
   val pageDump = opt[String](required=true, name="pageDump")
+  val outputPath = opt[String](name="outputPath")
   verify()
 }
 
@@ -158,8 +159,12 @@ object PagecountProcessor {
                      .agg(flatten(collect_list("visits")).alias("visits")).as[PageVisitsId]
     val pgVisitRows = pcDfId.flatMap(p => p.visits.map(v => PageVisitRow(p.id, v.time, v.count)))
 
-    pgCountProcessor.writeToDb(pgVisitRows, cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"))
-    if (cfg.hasPath("cassandra.db.tableMeta"))
-      pgCountProcessor.updateMeta(cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableMeta"), cfgBase.startDate(), cfgBase.endDate())
+    if (cfgBase.outputPath.isEmpty) {
+      pgCountProcessor.writeToDb(pgVisitRows, cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"))
+      if (cfg.hasPath("cassandra.db.tableMeta"))
+        pgCountProcessor.updateMeta(cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableMeta"), cfgBase.startDate(), cfgBase.endDate())
+    } else {
+      pgVisitRows.write.mode("overwrite").option("compression", "gzip").parquet(cfgBase.outputPath())
+    }
   }
 }
