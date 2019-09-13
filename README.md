@@ -76,7 +76,7 @@ and save the result to a cassandra DB, after resolving page ids (either a SQL pa
 * `--startDate` first day to process, formatted as `yyyy-MM-dd`, e.g. 2018-08-03
 * `--endDate` last day to process,  formatted as `yyyy-MM-dd`
 * `--pageDump` path to a page SQL dump or a version processed by *DumpParser* and saved as parquet
-
+* `--outputPath` path to Parquet files with pre-processed pagecounts. You can use these Parquet files as an alternative to Cassandra. For instance, if you want to use the data for further processing in Spark or any other framework that supports Parquet format.
 
 ### License
 
