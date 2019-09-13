@@ -49,6 +49,8 @@ We will need the dumps to build Wikipedia graph.
 
 3. Put the files to `/mnt/data/wikipedia/pagecounts/`.
 
+Now, you can deploy databases. **Note that Neo4J and Cassandra databases are independent and can be deployed separately.** Therefore, if you need only one type of data (either graph or pagecounts), you can deploy only one database. Also, if you do not want to work with Cassandra database, alternatively, you can use pre-processed Parquet files for further processing in Spark or any other framework that supports Parquet format. See details in Section 4.8.
+
 ### 3. Deploy the graph database
 #### 3.1 Pre-process files
 
@@ -212,7 +214,10 @@ spark-submit
 --startDate 2018-08-01
 --endDate 2018-08-31
 --pageDump /mnt/data/wikipedia/page.parquet
+--outputPath /mnt/data/processed/pagecount.parquet
 ```
+
+**You can use Parquet files stored in `--outputPath` as an alternative to Cassandra.** For instance, if you want to use the data for further processing in Spark or any other framework that supports Parquet format.
 
 #### 4.9 Verify the import. Show the table with pagecounts
 
