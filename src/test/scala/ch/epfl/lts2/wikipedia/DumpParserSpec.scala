@@ -108,6 +108,16 @@ class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData
     assert(res.filter(p => p._2.to == "English_male_short_story_writers").size == 1)
     assert(res.filter(p => p._2.to == "Pages_using_citations_with_format_and_no_URL").size == 1)
     
-  } 
+  }
+
+  it should "split filenames correctly" in {
+    val dp = new DumpParser
+    val di = dp.splitFilename("enwiki-20180801-langlinks.sql.bz2")
+    assert(di.langCode == "en" && di.dateCode == "20180801" & di.dumpType == "langlinks")
+    val dii = dp.splitFilename("frwiki-20190901-page.sql.bz2")
+    assert(dii.langCode == "fr" && dii.dateCode == "20190901" & dii.dumpType == "page")
+    val dii_small = dp.splitFilename("frwiki-20190901-page.small.sql.bz2")
+    assert(dii_small.langCode == "fr" && dii_small.dateCode == "20190901" & dii_small.dumpType == "page")
+  }
     
 }

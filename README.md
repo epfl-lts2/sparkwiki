@@ -38,7 +38,7 @@ From the project directory, run `sbt package` to build the jar file. If you want
 
 ### Dump processor
 This tool can be run using the class `ch.epfl.lts2.wikipedia.DumpProcessor` as entry point. It will read the 
-SQL table dumps starting with value supplient by the `namePrefix` argument, in the directory specified by the `dumpPath` argument, 
+SQL table dumps starting with value supplied by the `namePrefix` argument, in the directory specified by the `dumpPath` argument, 
 and write (compressed) csv files in the directory specified by `outputPath` that can later be imported in the [neo4j graph database](https://neo4j.com/).
 
 This tool requires the following table dumps to be present:
@@ -54,11 +54,12 @@ This tool requires the following table dumps to be present:
 
 
 ### Dump parser
-This tool is available using the class `ch.epfl.lts2.wikipedia.DumpParser` as entry point. It reads a single SQL dump
-and converts it to either a csv file, or a parquet file.
+This tool is available using the class `ch.epfl.lts2.wikipedia.DumpParser` as entry point. It reads one or more SQL dumps
+and converts them to either a csv file, or a parquet file. All the dumps should be of the same type (e.g. all `pages`)
+but can span multiple languages. Language will be extracted from the dump filename and appended to each record in the output.
 
 **Arguments**:
-* `--dumpFilePath` path to the .sql.gz or sql.bz2 SQL dump to read
+* `--dumpFilePaths` path to the .sql.gz or sql.bz2 SQL dumps to read
 * `--dumpType` should be *page*, *redirect*, *pagelinks*, *category* or *categorylinks*
 * `--outputPath` output directory
 * `--outputFormat` (default=*csv*), should be *csv* or *parquet*
@@ -67,7 +68,7 @@ and converts it to either a csv file, or a parquet file.
 ### Pagecount processor
 This tool can be run using the class `ch.epfl.lts2.wikipedia.PagecountProcessor` as entry point. It will read a collection of *pagecounts* covering the period
 between arguments `startDate` and `endDate` (inclusive bounds), 
-filter the counts belonging to *en.z* (english wikipedia project) and having more daily visits than a threshold given by the `minDailyVisit` argument
+filter the counts belonging to wikipedia project and having more daily visits than a threshold given by the `minDailyVisit` argument
 and save the result to a cassandra DB, after resolving page ids (either a SQL page dump or a processed SQL page dump (as parquet) must be supplied via the `pageDump` argument).
 
 **Arguments**:
@@ -75,6 +76,7 @@ and save the result to a cassandra DB, after resolving page ids (either a SQL pa
 * `--basePath` directory containing pagecounts files
 * `--startDate` first day to process, formatted as `yyyy-MM-dd`, e.g. 2018-08-03
 * `--endDate` last day to process,  formatted as `yyyy-MM-dd`
+* `--languages` list of languages to extract pagecounts for
 * `--pageDump` path to a page SQL dump or a version processed by *DumpParser* and saved as parquet
 * `--outputPath` path to Parquet files with pre-processed pagecounts. You can use these Parquet files as an alternative to Cassandra. For instance, if you want to use the data for further processing in Spark or any other framework that supports Parquet format.
 
