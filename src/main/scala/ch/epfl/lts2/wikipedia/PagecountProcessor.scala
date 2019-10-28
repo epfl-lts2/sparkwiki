@@ -21,26 +21,29 @@ class PagecountConf(args: Seq[String]) extends ScallopConf(args) with Serializat
   val startDate = opt[LocalDate](required = true, name="startDate")(singleArgConverter[LocalDate](LocalDate.parse(_)))
   val endDate = opt[LocalDate](required = true, name="endDate")(singleArgConverter[LocalDate](LocalDate.parse(_)))
   val pageDump = opt[String](required=true, name="pageDump")
+  val langList = opt[List[String]](required=true, name="languages")
   val outputPath = opt[String](name="outputPath")
   verify()
 }
 
 
 case class Visit(time:Timestamp, count:Int, timeResolution: String)
-case class PageVisits(title:String, namespace:Int, visits:List[Visit])
-case class PageVisitsIdFull(title: String, namespace:Int, id:Int, visits:List[Visit])
-case class PageVisitsId(id:Int, visits:List[Visit])
-case class PageVisitRow(page_id:Long, visit_time: Timestamp, count:Int)
+case class PageVisits(languageCode:String, title:String, namespace:Int, visits:List[Visit])
+case class PageVisitsIdFull(languageCode:String, title: String, namespace:Int, id:Int, visits:List[Visit])
+case class PageVisitsId(languageCode:String, id:Int, visits:List[Visit])
+case class PageVisitRow(languageCode:String, page_id:Long, visit_time: Timestamp, count:Int)
 
-class PagecountProcessor(val dbHost:String, val dbPort:Int, val dbUsername:String, val dbPassword:String) extends Serializable with JsonWriter with CsvWriter {
+class PagecountProcessor(val dbHost:String, val dbPort:Int, val dbUsername:String, val dbPassword:String,
+                         val languages:List[String]) extends Serializable with JsonWriter with CsvWriter {
+
   lazy val sconf = new SparkConf().setAppName("Wikipedia pagecount processor")
-        .set("spark.cassandra.connection.host", dbHost)
-        .set("spark.cassandra.connection.port", dbPort.toString)
-        .set("spark.cassandra.auth.username", dbUsername)
-        .set("spark.cassandra.auth.password", dbPassword)
+                                  .set("spark.cassandra.connection.host", dbHost)
+                                  .set("spark.cassandra.connection.port", dbPort.toString)
+                                  .set("spark.cassandra.auth.username", dbUsername)
+                                  .set("spark.cassandra.auth.password", dbPassword)
        
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
-  val parser = new WikipediaPagecountParser
+  val parser = new WikipediaPagecountParser(languages)
   val hourParser = new WikipediaHourlyVisitsParser
   
   def dateRange(from:LocalDate, to:LocalDate, step:Period):Iterator[LocalDate] = {
@@ -65,23 +68,23 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int, val dbUsername:Strin
   def parseLines(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):RDD[PageVisits] = {
     parser.getRDD(input.filter(!_.startsWith("#")))
                   .filter(w => w.dailyVisits > minDailyVisits)
-                  .map(p => PageVisits(p.title, p.namespace, getPageVisit(p, minDailyVisitsHourSplit, date))) 
+                  .map(p => PageVisits(p.languageCode, p.title, p.namespace, getPageVisit(p, minDailyVisitsHourSplit, date)))
   }
 
-  def mergePagecount(pageDf:Dataset[WikipediaPage], pagecountDf:Dataset[PageVisits]): Dataset[PageVisitsIdFull] = {
+  def mergePagecount(pageDf:Dataset[WikipediaPageLang], pagecountDf:Dataset[PageVisits]): Dataset[PageVisitsIdFull] = {
     import session.implicits._
-    pagecountDf.join(pageDf, Seq("title", "namespace"))
-               .select("title", "namespace", "id", "visits")
+    pagecountDf.join(pageDf, Seq("title", "namespace", "languageCode"))
+               .select("title", "namespace", "id", "visits", "languageCode")
                .as[PageVisitsIdFull]
   }
   
-  def getPageDataFrame(fileName:String):Dataset[WikipediaPage] = {
+  def getPageDataFrame(fileName:String):Dataset[WikipediaPageLang] = {
     import session.implicits._
     if (fileName.endsWith("sql.bz2") || fileName.endsWith("sql.gz")) { // seems like we are reading a table dump 
       val pageParser = new DumpParser
-      pageParser.processFileToDf(session, fileName, WikipediaDumpType.Page).select("id", "namespace", "title").as[WikipediaPage]
+      pageParser.processFileToDf(session, fileName, WikipediaDumpType.Page).select("id", "namespace", "title").as[WikipediaPageLang]
     } else { // otherwise try to import from a parquet file
-      session.read.parquet(fileName).as[WikipediaPage]
+      session.read.parquet(fileName).as[WikipediaPageLang]
     }
   }
   
@@ -135,10 +138,11 @@ object PagecountProcessor {
     val cfgBase = new PagecountConf(args)
     val cfgDefault = ConfigFactory.parseString("cassandra.db.port=9042,pagecountProcessor.keepRedirects=false")
     val cfg = ConfigFactory.parseFile(new File(cfgBase.cfgFile())).withFallback(cfgDefault)
-
+    val languages = cfgBase.langList()
     
     val pgCountProcessor = new PagecountProcessor(cfg.getString("cassandra.db.host"), cfg.getInt("cassandra.db.port"),
-                                                  cfg.getString("cassandra.db.username"), cfg.getString("cassandra.db.password"))
+                                                  cfg.getString("cassandra.db.username"), cfg.getString("cassandra.db.password"),
+                                                  languages)
     
     val range = pgCountProcessor.dateRange(cfgBase.startDate(), cfgBase.endDate(), Period.ofDays(1))
     val files = range.map(d => (d, Paths.get(cfgBase.basePath(), "pagecounts-" + d.format(dateFormatter) + ".bz2").toString)).toMap
@@ -155,9 +159,9 @@ object PagecountProcessor {
                                
     // join page and page count
     val pcDfId = pgCountProcessor.mergePagecount(pgDf, dfVisits)
-                     .groupBy("id")
+                     .groupBy("id", "languageCode")
                      .agg(flatten(collect_list("visits")).alias("visits")).as[PageVisitsId]
-    val pgVisitRows = pcDfId.flatMap(p => p.visits.map(v => PageVisitRow(p.id, v.time, v.count)))
+    val pgVisitRows = pcDfId.flatMap(p => p.visits.map(v => PageVisitRow(p.languageCode, p.id, v.time, v.count)))
 
     if (cfgBase.outputPath.isEmpty) {
       pgCountProcessor.writeToDb(pgVisitRows, cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"))

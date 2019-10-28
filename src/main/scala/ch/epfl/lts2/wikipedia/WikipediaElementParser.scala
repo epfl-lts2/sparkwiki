@@ -1,6 +1,8 @@
 package ch.epfl.lts2.wikipedia
 import java.text.SimpleDateFormat
 import java.sql.Timestamp
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import java.time._
 import java.util.Date
 import org.apache.spark.rdd.RDD
@@ -41,7 +43,7 @@ class WikipediaPageParser extends Serializable with WikipediaElementParser[Wikip
     r.map(m =>  WikipediaPage(m.group(1).toInt, m.group(2).toInt, m.group(3), m.group(4),
                         m.group(5).toInt == 1, m.group(6).toInt == 1, m.group(7).toDouble, 
                         new Timestamp(timestampFormat.parse(m.group(8)).getTime), m.group(9), m.group(10).toInt, 
-                        m.group(11).toInt, m.group(12), m.group(13)))
+                        m.group(11).toInt, m.group(12)))
       
   }
     
@@ -147,29 +149,44 @@ class WikipediaCategoryLinkParser extends Serializable with WikipediaElementPars
   def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
 }
 
-class WikipediaPagecountParser extends Serializable with WikipediaElementParser[WikipediaPagecount] {
+class WikipediaPagecountParser(val languages:List[String]) extends Serializable with WikipediaElementParser[WikipediaPagecount] {
   val pageCountRegex = """^([a-z]{2}\.[a-z]) (.*?) (\d+) ((?:[A-Z]\d+)+)$""".r
   val titleNsRegex = """(.*?):(.*?)""".r
+  val urlEncodeRegex = """^%[A-F\d]{2}""".r
+  def decodeTitle(t: String):String = {
+   val d = t match {
+     case urlEncodeRegex(_*) => URLDecoder.decode(t, StandardCharsets.UTF_8.name())
+     case _ => t
+    }
+    d
+  }
   def parseLine(lineInput:String): List[WikipediaPagecount] = {
     val r = pageCountRegex.findAllIn(lineInput).matchData.toList
     r.map(m => {
-      val extTitle = m.group(2)
+      // for some locales, the title of the page in pagecount data is html encoded -> decode it s.t. it can be matched to pages
+
+
+      val extTitle = decodeTitle(m.group(2))
       val (title, nsStr) = extTitle match {
         case titleNsRegex(nsStr, title) => (title, nsStr)
         case _ => (extTitle, "Page")
       }
+
       val ns = nsStr match {
         case "Page" => WikipediaNamespace.Page
         case "Category" => WikipediaNamespace.Category
         case "Book" => WikipediaNamespace.Book
         case _ => WikipediaNamespace.Dummy
       }
-      WikipediaPagecount(m.group(1), title, ns, m.group(3).toInt, m.group(4))
+      // extract lang code
+      val langCode = m.group(1).split('.')(0)
+      WikipediaPagecount(langCode, title, ns, m.group(3).toInt, m.group(4)) // language = 1st two chars of project name
+
     })
   }
   
-  def filterElt(t: WikipediaPagecount):Boolean = t.project == "en.z" && 
-                                                              (t.namespace == WikipediaNamespace.Page || t.namespace == WikipediaNamespace.Category)
+  def filterElt(t: WikipediaPagecount):Boolean = languages.contains(t.languageCode) &&
+                                                  (t.namespace == WikipediaNamespace.Page || t.namespace == WikipediaNamespace.Category)
                                                               
   def getRDD(lines:RDD[String]):RDD[WikipediaPagecount] = {
     lines.flatMap(l => parseLine(l)).filter(filterElt)

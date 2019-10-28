@@ -24,12 +24,13 @@ object WikipediaNamespace extends Enumeration {
   val Book:Int = 108
 }
 
-abstract class WikipediaElement extends Serializable
+case class DumpInfo(langCode:String, dateCode:String, dumpType:String)
 
+abstract class WikipediaElement extends Serializable
 
 case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String, 
                           isRedirect:Boolean, isNew:Boolean, random:Double, touched:Timestamp, linksUpdated:String,
-                          latest:Int, len:Int, contentModel:String, lang:String) extends WikipediaElement 
+                          latest:Int, len:Int, contentModel:String) extends WikipediaElement
                           
 case class WikipediaSimplePage(id:Int, title:String, isRedirect:Boolean, isNew: Boolean) extends WikipediaElement                          
 case class WikipediaPageLink(from:Int, namespace:Int, title:String, fromNamespace:Int) extends WikipediaElement 
@@ -44,7 +45,7 @@ case class WikipediaCategory(id:Int, title:String, pages:Int, subcats:Int, files
 case class WikipediaCategoryLink(from:Int, to:String, sortKey:String, timestamp:Timestamp, 
                                   sortkeyPrefix:String, collation:String, ctype:String) extends WikipediaElement
 
-case class WikipediaPagecount(project:String, title:String, namespace:Int, dailyVisits:Int, hourlyVisits:String) extends WikipediaElement
+case class WikipediaPagecount(languageCode:String, title:String, namespace:Int, dailyVisits:Int, hourlyVisits:String) extends WikipediaElement
 
 case class WikipediaHourlyVisit(time:LocalDateTime, visits:Int) extends WikipediaElement
 
@@ -52,3 +53,6 @@ case class MergedPageLink(from:Int, id:Int, title:String, fromNamespace:Int, nam
 case class MergedRedirect(from:Int, id:Int, title:String) extends WikipediaElement
 case class MergedCatlink(from:Int, id:Int, title:String, ctype:String) extends WikipediaElement
 
+case class WikipediaPageLang(id:Int, namespace:Int, title:String, restriction:String,
+                         isRedirect:Boolean, isNew:Boolean, random:Double, touched:Timestamp, linksUpdated:String,
+                         latest:Int, len:Int, contentModel:String, languageCode:String) extends WikipediaElement

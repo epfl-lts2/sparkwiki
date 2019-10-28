@@ -2,15 +2,19 @@ package ch.epfl.lts2.wikipedia
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions.lit
 import org.rogach.scallop._
+import java.nio.file.Paths
 
 class ParserConf(args: Seq[String]) extends ScallopConf(args) with Serialization {
-  val dumpFilePath = opt[String](required = true, name= "dumpFilePath")
+  val dumpFilePaths = opt[List[String]](required = true, name= "dumpFilePaths")
   val dumpType = opt[String](required = true, name="dumpType")
   val outputPath = opt[String](required = true, name="outputPath")
   val outputFormat = opt[String](name="outputFormat", default=Some("csv"))
   verify()
 }
+
+
 
 class DumpParser extends Serializable  with CsvWriter {
   
@@ -42,9 +46,19 @@ class DumpParser extends Serializable  with CsvWriter {
     val lines = session.sparkContext.textFile(inputFilename, 4)
     processToDf(session, lines, dumpType)
   }
-  
-  def process(session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value, outputPath:String, outputFormat:String) = {
-    val df = processFileToDf(session, inputFilename, dumpType)
+
+  def splitFilename(fileName:String): DumpInfo = {
+    // filename has format: enwiki-20180801-langlinks.sql.bz2
+    val p = Paths.get(fileName)
+    val spl = p.getFileName.toString.split('-')
+    val dt = spl(2).split('.')
+    DumpInfo(spl(0).stripSuffix("wiki"), spl(1), dt(0))
+  }
+
+  def process(session: SparkSession, inputFilenames:List[String], dumpType:WikipediaDumpType.Value, outputPath:String, outputFormat:String) = {
+    val df = inputFilenames.map(f => processFileToDf(session, f, dumpType).withColumn("languageCode", lit(splitFilename(f).langCode)))
+                           .reduce((p1, p2) => p1.union(p2))
+
     outputFormat match {
       case "parquet" => writeParquet(df, outputPath)
       case _ => writeCsv(df, outputPath)
@@ -55,15 +69,15 @@ class DumpParser extends Serializable  with CsvWriter {
 
 object DumpParser 
 {
+
   val dumpParser = new DumpParser
   // main 
   def main(args:Array[String]) = 
   {
-    val conf = new ParserConf(args) // TODO detect type from CREATE TABLE statement
-    println("Reading %s".format(conf.dumpFilePath()))
+    val conf = new ParserConf(args)
     val dumpType = conf.dumpType()
     val outputFormat = conf.outputFormat()
-    val sconf = new SparkConf().setAppName("Wikipedia dump parser")
+    val sconf =  new SparkConf().setAppName("Wikipedia dump parser")
     val session = SparkSession.builder.config(sconf).getOrCreate()
     assert(WikipediaNamespace.Page == 0)
     assert(WikipediaNamespace.Category == 14)
@@ -74,7 +88,8 @@ object DumpParser
       case "category" => WikipediaDumpType.Category
       case "categorylinks" => WikipediaDumpType.CategoryLinks
     }
-    dumpParser.process(session, conf.dumpFilePath(), dumpEltType, conf.outputPath(), conf.outputFormat())
+
+    dumpParser.process(session, conf.dumpFilePaths(), dumpEltType, conf.outputPath(), conf.outputFormat())
 
   }
 }
