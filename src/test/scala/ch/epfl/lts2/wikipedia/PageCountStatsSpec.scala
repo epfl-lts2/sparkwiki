@@ -3,7 +3,7 @@ import java.sql.Timestamp
 import java.time._
 import org.scalatest.FlatSpec
 
-class PageCountStatsSpec extends FlatSpec with PageCountStatsLoader {
+class PageCountStatsSpec extends FlatSpec with DateChecker {
 
   "PageCountStatsLoader" should "check date ranges correctly" in {
     val startDate = LocalDate.of(2018, 9, 1)

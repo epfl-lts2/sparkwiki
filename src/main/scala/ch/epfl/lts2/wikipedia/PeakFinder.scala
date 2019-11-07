@@ -13,6 +13,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.graphx._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.neo4j.spark._
+import org.rogach.scallop._
 
 
 case class PageRowThreshold(page_id:Long, threshold: Double)
@@ -21,9 +22,18 @@ case class PageVisitGroup(page_id:Long, visits:List[(Timestamp, Int)])
 case class PageVisitElapsedGroup(page_id:Long, visits:List[(Int,Double)])
 
 
-class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String,
-                 keySpace: String, tableVisits:String, tableStats:String, tableMeta:String,
-                 boltUrl:String, neo4jUser:String, neo4jPass:String, outputPath:String) extends PageCountStatsLoader with Serializable {
+class PeakFinderConfig(args: Seq[String]) extends ScallopConf(args) with Serialization {
+  val cfgFile = opt[String](name="config", required=true)
+  val outputPath = opt[String](name="outputPath", required=true)
+  val language = opt[String](required=true, name="language")
+  val parquetPagecounts = opt[Boolean](default=Some(false), name="parquetPagecounts")
+  val parquetPagecountsPath = opt[String](default=Some(""), name="parquetPagecountPath")
+  verify()
+}
+
+class PeakFinder(parquetPageCount:Boolean, parquetPagecountPath:String, dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String,
+                 keySpace: String, tableVisits:String, tableMeta:String,
+                 boltUrl:String, neo4jUser:String, neo4jPass:String, outputPath:String) extends Serializable {
   lazy val sparkConfig: SparkConf = new SparkConf().setAppName("Wikipedia activity detector")
         .set("spark.cassandra.connection.host", dbHost)
         .set("spark.cassandra.connection.port", dbPort.toString)
@@ -35,13 +45,14 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
 
   lazy val session: SparkSession = SparkSession.builder.config(sparkConfig).getOrCreate()
 
+  val pageCountLoader = if (parquetPageCount) new PageCountStatsLoaderParquet(session, parquetPagecountPath)
+                        else new PageCountStatsLoaderCassandra(session, keySpace, tableVisits, tableMeta)
 
   private def unextendTimeSeries(inputExtended:Dataset[PageVisitGroup], startDate:LocalDate):Dataset[PageVisitGroup] = {
     import session.implicits._
     val startTs = Timestamp.valueOf(startDate.atStartOfDay.minusNanos(1))
     inputExtended.map(p => PageVisitGroup(p.page_id, p.visits.filter(v => v._1.after(startTs))) ).cache()
   }
-
 
   /**
     * Computes similarity of two time-series
@@ -91,7 +102,7 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   def getStats(input: Dataset[PageVisitGroup], startDate:LocalDate, endDate:LocalDate):Dataset[PageStatRow] = {
     import session.implicits._
 
-    val totalHours = getPeriodHours(startDate, endDate)
+    val totalHours = TimeSeriesUtils.getPeriodHours(startDate, endDate)
     input.map(p => PageVisitElapsedGroup(p.page_id, p.visits.map(v => (Duration.between(startDate.atStartOfDay, v._1.toLocalDateTime).toHours.toInt, v._2.toDouble))))
          .map(p => (p.page_id, meanAndVariance(new VectorBuilder(p.visits.map(f => f._1).toArray, p.visits.map(f => f._2).toArray, p.visits.size, totalHours).toDenseVector)))
          .map(p => PageStatRow(p._1, p._2.mean, p._2.variance))    
@@ -123,8 +134,8 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
     import session.implicits._
 
     val startTime = startDateExtend.atStartOfDay
-    val totalHours = getPeriodHours(startDateExtend, endDate)
-    val extensionHours = getPeriodHours(startDateExtend, startDate.minusDays(1)) // do not remove first day of studied period
+    val totalHours = TimeSeriesUtils.getPeriodHours(startDateExtend, endDate)
+    val extensionHours = TimeSeriesUtils.getPeriodHours(startDateExtend, startDate.minusDays(1)) // do not remove first day of studied period
 
     val activePages = inputExtended.map(p => PageVisitElapsedGroup(p.page_id, p.visits.map(v => (Duration.between(startTime, v._1.toLocalDateTime).toHours.toInt, v._2.toDouble))))
                                   .map(p => (p.page_id, new VectorBuilder(p.visits.map(f => f._1).toArray, p.visits.map(f => f._2).toArray, p.visits.size, totalHours).toDenseVector.toArray))
@@ -154,7 +165,8 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
   }
   
   
-  def getVisitsTimeSeriesGroup(startDate:LocalDate, endDate:LocalDate):Dataset[PageVisitGroup] = getVisitsTimeSeriesGroup(session, keySpace, tableVisits, tableMeta, startDate, endDate)
+  def getVisitsTimeSeriesGroup(startDate:LocalDate, endDate:LocalDate, language:String):Dataset[PageVisitGroup] = pageCountLoader.getVisitsTimeSeriesGroup(startDate, endDate, language)
+
   def getActiveTimeSeries(timeSeries:Dataset[PageVisitGroup], activeNodes:Dataset[Long], startDate:LocalDate, totalHours:Int, dailyMinThreshold:Int):Dataset[(Long, List[(Timestamp, Int)])] = {
     import session.implicits._
     val input = unextendTimeSeries(timeSeries, startDate)
@@ -172,16 +184,17 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
    object PeakFinder {
     def main(args:Array[String]) = {
       val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
-      val cfgBase = new ConfigFileOutputPathOpt(args)
+      val cfgBase = new PeakFinderConfig(args)
       val cfgDefault = ConfigFactory.parseString("cassandra.db.port=9042,peakfinder.useTableStats=false" +
                                                  ",peakfinder.activityZScore=false,peakfinder.pearsonCorrelation=false," +
                                                  "peakfinder.zscore.saveOutput=false,peakfinder.minEdgeWeight=1.0")
       val cfg = ConfigFactory.parseFile(new File(cfgBase.cfgFile())).withFallback(cfgDefault)
       val outputPath = cfgBase.outputPath()
-      val pf = new PeakFinder(cfg.getString("cassandra.db.host"), cfg.getInt("cassandra.db.port"),
+      val pf = new PeakFinder(cfgBase.parquetPagecounts(), cfgBase.parquetPagecountsPath(),
+                              cfg.getString("cassandra.db.host"), cfg.getInt("cassandra.db.port"),
                               cfg.getString("cassandra.db.username"), cfg.getString("cassandra.db.password"),
                               cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"),
-                              cfg.getString("cassandra.db.tableStats"), cfg.getString("cassandra.db.tableMeta"),
+                              cfg.getString("cassandra.db.tableMeta"),
                               cfg.getString("neo4j.bolt.url"), cfg.getString("neo4j.user"), cfg.getString("neo4j.password"),
                               outputPath)
       val startDate = LocalDate.parse(cfg.getString("peakfinder.startDate"))
@@ -194,9 +207,9 @@ class PeakFinder(dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String
       // retrieve visits time series plus history of equal length
       val visitsExtend = Period.between(startDate, endDate).getDays
       val startDateExtend = startDate.minusDays(visitsExtend)
-      val extendedTimeSeries = pf.getVisitsTimeSeriesGroup(startDateExtend, endDate).cache()
+      val extendedTimeSeries = pf.getVisitsTimeSeriesGroup(startDateExtend, endDate, cfgBase.language()).cache()
 
-      val totalHours = pf.getPeriodHours(startDate, endDate)
+      val totalHours = TimeSeriesUtils.getPeriodHours(startDate, endDate)
       val startTime = startDate.atStartOfDay
 
       val activePages = if (!activityZscore)

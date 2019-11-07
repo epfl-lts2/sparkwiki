@@ -1,6 +1,6 @@
 package ch.epfl.lts2.wikipedia
 import java.sql.Timestamp
-import java.time.{Duration, LocalDateTime}
+import java.time.{Duration, LocalDate, LocalDateTime}
 
 import breeze.linalg._
 import breeze.stats._
@@ -8,6 +8,10 @@ import com.github.servicenow.ds.stats.stl.SeasonalTrendLoess
 
 object TimeSeriesUtils {
 
+  def getPeriodHours(startDate:LocalDate, endDate:LocalDate):Int = {
+    val visitsPeriod = Duration.between(startDate.atStartOfDay, endDate.plusDays(1).atStartOfDay)
+    visitsPeriod.toHours.toInt
+  }
   /**
     * Converts a (possibly sparse) list of visits at given times to a vector (regularly sampled)
     * @param v list of (time, visit count) tuples

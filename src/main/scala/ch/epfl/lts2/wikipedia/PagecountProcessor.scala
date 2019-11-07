@@ -113,7 +113,16 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int, val dbUsername:Strin
     else
       current
   }
-  
+
+  def updateMeta(path:String, startDate:LocalDate, endDate:LocalDate) = {
+    import session.implicits._
+
+
+    val newData = PagecountMetadata(Timestamp.valueOf(startDate.atStartOfDay), Timestamp.valueOf(endDate.atStartOfDay))
+    val updatedData = session.sparkContext.parallelize(Seq(newData)).toDF.as[PagecountMetadata]
+    updatedData.write.mode("append").option("compression", "gzip").parquet(path)
+  }
+
   def updateMeta(keyspace:String, tableMeta:String, startDate:LocalDate, endDate:LocalDate) = {
     import session.implicits._
 
@@ -163,12 +172,15 @@ object PagecountProcessor {
                      .agg(flatten(collect_list("visits")).alias("visits")).as[PageVisitsId]
     val pgVisitRows = pcDfId.flatMap(p => p.visits.map(v => PageVisitRow(p.languageCode, p.id, v.time, v.count)))
 
-    if (cfgBase.outputPath.isEmpty) {
+    if (cfgBase.outputPath.isEmpty) { // save output to database
       pgCountProcessor.writeToDb(pgVisitRows, cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"))
       if (cfg.hasPath("cassandra.db.tableMeta"))
         pgCountProcessor.updateMeta(cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableMeta"), cfgBase.startDate(), cfgBase.endDate())
-    } else {
-      pgVisitRows.write.mode("overwrite").option("compression", "gzip").parquet(cfgBase.outputPath())
+    } else { // save to file
+      val pathMeta = Paths.get(cfgBase.outputPath(), Constants.META_DIR).toString
+      pgCountProcessor.updateMeta(pathMeta, cfgBase.startDate(), cfgBase.endDate())
+      val pathPage = Paths.get(cfgBase.outputPath(), Constants.PGCOUNT_DIR).toString
+      pgVisitRows.write.mode("append").option("compression", "gzip").parquet(pathPage)
     }
   }
 }
