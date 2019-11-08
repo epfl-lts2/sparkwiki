@@ -102,7 +102,17 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
     assert(res3(0).namespace == WikipediaNamespace.Page && res3(0).visits.size == 5)
     res3(0).visits.map(p => assert(p.count == 600 && p.timeResolution == "Hour"))
   }
-  
+
+  it should "filter according to minimum daily visits correctly" in {
+    import spark.implicits._
+    val p = new PagecountProcessor("127.0.0.1", 9042, "user", "password", List("en"))
+    val pcDf = p.parseLinesToDf(spark.sparkContext.parallelize(pageCount2, 2), 150, 2000, LocalDate.of(2018, 8, 1))
+    assert(pcDf.count() == 3)
+    val res = pcDf.filter(p => p.title == "AccessibleComputing").collect()
+    assert(res.isEmpty)
+
+  }
+
   it should "merge page dataframe correctly" in {
     import spark.implicits._
     val p = new PagecountProcessor("127.0.0.1", 9042, "user", "password", List("en"))
