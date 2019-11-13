@@ -149,11 +149,19 @@ class PeakFinder(parquetPageCount:Boolean, parquetPagecountPath:String, dbHost:S
     activePages.map(_._1)
   }
   
-  def extractActiveSubGraph(activeNodes:Dataset[Long]):Graph[String, Double] = {
+  def extractActiveSubGraph(activeNodes:Dataset[Long], includeCategories:Boolean):Graph[String, Double] = {
     // setup neo4j connection
     val neo = Neo4j(session.sparkContext)
-    val nodesQuery = "MATCH (p:Page) WHERE p.id in {nodelist} RETURN p.id AS id, p.title AS value"
-    val relsQuery = "MATCH (p1)-[r]->(p2) WHERE p1.id IN {nodelist} AND p2.id IN {nodelist} RETURN p1.id AS source, p2.id AS target, type(r) AS value"
+    var nodesQuery = ""
+    var relsQuery = ""
+    if (includeCategories) {
+        nodesQuery = "MATCH (p:Page) WHERE p.id in {nodelist} RETURN p.id AS id, p.title AS value"
+        relsQuery = "MATCH (p1)-[r]->(p2) WHERE p1.id IN {nodelist} AND p2.id IN {nodelist} RETURN p1.id AS source, p2.id AS target, type(r) AS value"
+        } else {
+            nodesQuery = "MATCH (p:Page) WHERE NOT 'Category' IN labels(p) AND p.id in {nodelist} RETURN p.id AS id, p.title AS value"
+            relsQuery = "MATCH (p1)-[r]->(p2) WHERE NOT 'Category' IN labels(p1) AND NOT 'Category' IN labels(p2) AND p1.id IN {nodelist} AND p2.id IN {nodelist} RETURN p1.id AS source, p2.id AS target, type(r) AS value"
+        }
+
     val nodeList = activeNodes.collectAsList() // neo4j connector cannot take RDDs
     
     // perform query
@@ -187,7 +195,7 @@ class PeakFinder(parquetPageCount:Boolean, parquetPagecountPath:String, dbHost:S
       val cfgBase = new PeakFinderConfig(args)
       val cfgDefault = ConfigFactory.parseString("cassandra.db.port=9042,peakfinder.useTableStats=false" +
                                                  ",peakfinder.activityZScore=false,peakfinder.pearsonCorrelation=false," +
-                                                 "peakfinder.zscore.saveOutput=false,peakfinder.minEdgeWeight=1.0")
+                                                 "peakfinder.zscore.saveOutput=false,peakfinder.minEdgeWeight=1.0,peakfinder.includeCategories=false")
       val cfg = ConfigFactory.parseFile(new File(cfgBase.cfgFile())).withFallback(cfgDefault)
       val outputPath = cfgBase.outputPath()
       val pf = new PeakFinder(cfgBase.parquetPagecounts(), cfgBase.parquetPagecountsPath(),
@@ -201,6 +209,8 @@ class PeakFinder(parquetPageCount:Boolean, parquetPagecountPath:String, dbHost:S
       val endDate = LocalDate.parse(cfg.getString("peakfinder.endDate"))
       val activityZscore = cfg.getBoolean("peakfinder.activityZScore")
       val pearsonCorr = cfg.getBoolean("peakfinder.pearsonCorrelation")
+      val includeCategories = cfg.getBoolean("peakfinder.includeCategories")
+
       if (startDate.isAfter(endDate))
          throw new IllegalArgumentException("Start date is after end date")
 
@@ -229,7 +239,7 @@ class PeakFinder(parquetPageCount:Boolean, parquetPagecountPath:String, dbHost:S
                                                     totalHours = totalHours,
                                                     dailyMinThreshold = cfg.getInt("peakfinder.dailyMinThreshold"))//.cache()
 
-      val activePagesGraph = GraphUtils.toUndirected(pf.extractActiveSubGraph(activePages).outerJoinVertices(activeTimeSeries.rdd)((_, title, visits) => (title, visits)), pf.mergeEdges)
+      val activePagesGraph = GraphUtils.toUndirected(pf.extractActiveSubGraph(activePages, includeCategories).outerJoinVertices(activeTimeSeries.rdd)((_, title, visits) => (title, visits)), pf.mergeEdges)
 
 
       
