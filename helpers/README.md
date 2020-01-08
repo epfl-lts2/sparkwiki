@@ -93,7 +93,8 @@ Start/Stop Neo4J service to initialize the `wikipedia.db`.
 `sudo neo4j stop`
 
 #### 3.4 Import the pre-processed files in Neo4J
-**Note:** Neo4J service should be down. Otherwise, the script will not work.
+**Note1:** Neo4J service should be down. Otherwise, the script will not work.
+**Note2:** You can find header files in the `import` folder, which is located [here](https://github.com/epfl-lts2/sparkwiki/tree/master/helpers/import). **Before running this script, put it in the same folder with the `import` folder.**
 
 * Run the script below to import the pre-processed files into Neo4J. This step takes quite some time depending on your hardware (the amount of RAM and the type of the storage). For example, on a computer with 32 GB of RAM and an SSD (free space of around 10 GB required), it should take less than 30 minutes.
 
