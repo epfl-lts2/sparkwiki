@@ -13,9 +13,7 @@ This deployment tutorial is for Linux users. If you want to know how to deploy t
     * Another way is to follow the steps described on the [Apache Spark website](https://spark.apache.org/downloads.html).
 4. Install **Neo4J** (if you need to work with Wikipedia graph).
     * Follow the instructions on the [official website](https://debian.neo4j.org).
-5. Install **Apache Cassandra** (if you need to work with pagecounts).
-    * Follow the instructions on the [official website](http://cassandra.apache.org/download/)
-6. Build the project.
+5. Build the project.
     * Clone the repository from [GitHub](https://github.com/epfl-lts2/sparkwiki). The code prepares the data for the deployment.
     * Run `sbt package` to build the project and get the `.jar` file. We will need this file to run pre-processing jobs in Spark.
 
@@ -49,7 +47,7 @@ We will need the dumps to build Wikipedia graph.
 
 3. Put the files to `/mnt/data/wikipedia/pagecounts/`.
 
-Now, you can deploy databases. **Note that Neo4J and Cassandra databases are independent and can be deployed separately.** Therefore, if you need only one type of data (either graph or pagecounts), you can deploy only one database. Also, if you do not want to work with Cassandra database, alternatively, you can use pre-processed Parquet files for further processing in Spark or any other framework that supports Parquet format. See details in Section 4.8.
+Now, everything is ready and you can pre-process the files. Note that you can use graph data and pagecounts separately. If you need only graph data, follow the instructions in Section 3. If you need only pagecounts data, follow the instructions in Section 4.
 
 ### 3. Deploy the graph database
 #### 3.1 Pre-process files
@@ -94,6 +92,7 @@ Start/Stop Neo4J service to initialize the `wikipedia.db`.
 
 #### 3.4 Import the pre-processed files in Neo4J
 **Note1:** Neo4J service should be down. Otherwise, the script will not work.
+
 **Note2:** You can find header files in the `import` folder, which is located [here](https://github.com/epfl-lts2/sparkwiki/tree/master/helpers/import). **Before running this script, put it in the same folder with the `import` folder.**
 
 * Run the script below to import the pre-processed files into Neo4J. This step takes quite some time depending on your hardware (the amount of RAM and the type of the storage). For example, on a computer with 32 GB of RAM and an SSD (free space of around 10 GB required), it should take less than 30 minutes.
@@ -135,50 +134,10 @@ CALL db.indexes()
 Example: 
 `MATCH (p)-[:BELONGS_TO*1..2]->(c:Category { title: 'Physics'}) WITH DISTINCT p AS p1 RETURN p1.id, p1.title, labels(p1);`
 
-### 4. Deploy the pagecounts database
+The graph is ready. If you don't need pagecounts, you are good to go. Otherwise, keep following the instructions and pre-process the pagecounts.
 
-#### 4.1 Start Apache Cassandra
-`sudo service cassandra start`
-
-#### 4.2 Check IP of your Cassandra node
-`nodetool status`
-
-#### 4.3 Open Cassandra console
-`cqlsh`
-
-#### 4.4 Create keyspace
-The query below will create a keyspace for a single-node environment.
-
-`CREATE KEYSPACE wikipedia
- WITH REPLICATION = {
-  'class' : 'SimpleStrategy',
-  'replication_factor' : 1
- };
-`
-
-If you want to configure a multi-node environment, read more about replication strategies [here](https://docs.datastax.com/en/cql/3.3/cql/cql_reference/cqlCreateKeyspace.html).
-
-#### 4.5 Create tables to import pagecounts
-`
-CREATE TABLE wikipedia.page_visits (
-    page_id bigint,
-    visit_time timestamp,
-    count int,
-    PRIMARY KEY (page_id, visit_time));
-`
-
-`
-CREATE TABLE wikipedia.pagecount_metadata (
-    start_time timestamp,
-    end_time timestamp,
-    PRIMARY KEY (start_time, end_time));
-`
-#### 4.6 Exit `cqlsh`
-
-#### 4.7 Pre-process raw pagecounts
+### 4. Process raw pagecounts
 Use `ch.epfl.lts2.wikipedia.DumpParser` to get `.parquet` files for the `page.sql` dumps. To do this, run a command in the following format:
-
-For more information on the parameters check out the [README](https://github.com/epfl-lts2/sparkwiki/blob/master/README.md#dump-processor).
 
 ```
 spark-submit 
@@ -188,17 +147,14 @@ spark-submit
 --driver-memory 10g 
 --packages    org.rogach:scallop_2.11:3.1.5,
               com.datastax.spark:spark-cassandra-connector_2.11:2.4.0
-              <SPARKWIKI LOCATION>/sparkwiki/target/scala-2.11/sparkwiki_2.11-0.8.5.jar 
---dumpFilePath /mnt/data/wikipedia/dumps/enwiki-<DATE>-page.sql.bz2 
+              <SPARKWIKI LOCATION>/sparkwiki/target/scala-2.11/sparkwiki_<VERSION>.jar 
+--dumpFilePaths <PATH TO THE DUMPS, e.g. ~/data/dumps/enwiki-20190901-page.sql.bz2>
 --dumpType page 
 --outputPath /mnt/data/wikipedia/page.parquet 
 --outputFormat parquet
 ```
 
-#### 4.8 Import the pagecounts files into Cassandra
-Use `ch.epfl.lts2.wikipedia.PagecountProcessor` to import the files.
-
-For more information on the parameters check out the [README](https://github.com/epfl-lts2/sparkwiki/blob/master/README.md#pagecount-processor).
+Now, you can filter the pagecounts. You can choose the dates and languages of interest using `ch.epfl.lts2.wikipedia.PagecountProcessor`.
 
 ```
 spark-submit 
@@ -214,20 +170,11 @@ spark-submit
 --basePath /mnt/data/wikipedia/pagecounts/2018/2018-08
 --startDate 2018-08-01
 --endDate 2018-08-31
---pageDump /mnt/data/wikipedia/page.parquet
+--pageDump /mnt/data/wikipedia/page.parquet <PATH TO PRE-PROCESSED FILES FROM ch.epfl.lts2.wikipedia.DumpParser>
+--languages en <LIST OF LANGUAGE CODES>
 --outputPath /mnt/data/processed/pagecount.parquet
 ```
 
-**You can use Parquet files stored in `--outputPath` as an alternative to Cassandra.** For instance, if you want to use the data for further processing in Spark or any other framework that supports Parquet format.
+For more information on the parameters check out the [README](https://github.com/epfl-lts2/sparkwiki/blob/master/README.md#pagecount-processor).
 
-#### 4.9 Verify the import. Show the table with pagecounts
-
-`sudo service cassandra start`
-
-`cqlsh`
-
-`select * from wikipedia.page_visits limit 10;`
-
-`exit`
-
-`sudo service cassandra stop`
+Now, you can use `.parquet` files stored in `--outputPath`, if you want to use the data for further processing in Spark or any other framework that supports `.parquet` format.
