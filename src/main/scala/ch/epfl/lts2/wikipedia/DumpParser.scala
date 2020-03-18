@@ -27,7 +27,7 @@ class DumpParser extends Serializable  with CsvWriter {
     df.write.mode("overwrite").option("compression", "gzip").parquet(outputPath)
   }
   
-  def processToDf(session: SparkSession, input:RDD[String], dumpType:WikipediaDumpType.Value):DataFrame = {
+  def processToDf(session: SparkSession, input:RDD[String], dumpType:WikipediaDumpType.Value, toLang: String = "en"):DataFrame = {
     
     val sqlLines = input.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(dumpType)))
     val records = sqlLines.map(l => splitSqlInsertLine(l))
@@ -37,14 +37,15 @@ class DumpParser extends Serializable  with CsvWriter {
       case WikipediaDumpType.Redirect => new WikipediaRedirectParser
       case WikipediaDumpType.Category => new WikipediaCategoryParser
       case WikipediaDumpType.CategoryLinks => new WikipediaCategoryLinkParser
+      case WikipediaDumpType.LangLinks => new WikipediaLangLinkParser(toLang)
     }
     
     parser.getDataFrame(session, records)
   }
   
-  def processFileToDf(session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value):DataFrame = {
+  def processFileToDf(session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value,toLang: String = "en"):DataFrame = {
     val lines = session.sparkContext.textFile(inputFilename, 4)
-    processToDf(session, lines, dumpType)
+    processToDf(session, lines, dumpType, toLang)
   }
 
   def splitFilename(fileName:String): DumpInfo = {
