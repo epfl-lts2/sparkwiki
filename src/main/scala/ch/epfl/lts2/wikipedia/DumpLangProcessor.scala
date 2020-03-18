@@ -30,9 +30,7 @@ object DumpLangProcessor {
 
     val conf = new LangProcessorConf(args)
     val dumpParser = new DumpParser
-    //val sparkWikiParser = new SparkWikiParser
-
-
+    
     val langLinksFile = Paths.get(conf.dumpPath(), conf.namePrefix() + "-langlinks.sql.bz2").toString
     val langLinksOutput = Paths.get(conf.outputPath(), conf.toLang.getOrElse("en")+"-langlinks").toString
     val langLinksDf = dumpParser.processFileToDf(dp.session, langLinksFile, WikipediaDumpType.LangLinks, conf.toLang.getOrElse("en") ).as[WikipediaLangLink]
