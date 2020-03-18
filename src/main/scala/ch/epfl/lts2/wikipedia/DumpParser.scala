@@ -43,7 +43,7 @@ class DumpParser extends Serializable  with CsvWriter {
     parser.getDataFrame(session, records)
   }
   
-  def processFileToDf(session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value,toLang: String = "en"):DataFrame = {
+  def processFileToDf(session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value, toLang: String = "en"):DataFrame = {
     val lines = session.sparkContext.textFile(inputFilename, 4)
     processToDf(session, lines, dumpType, toLang)
   }
