@@ -43,7 +43,7 @@ class WikipediaPageParser extends Serializable with WikipediaElementParser[Wikip
     r.map(m =>  WikipediaPage(m.group(1).toInt, m.group(2).toInt, m.group(3), m.group(4),
                         m.group(5).toInt == 1, m.group(6).toInt == 1, m.group(7).toDouble, 
                         new Timestamp(timestampFormat.parse(m.group(8)).getTime), m.group(9), m.group(10).toInt, 
-                        m.group(11).toInt, m.group(12), m.group(13)))
+                        m.group(11).toInt, m.group(12)))
       
   }
     
