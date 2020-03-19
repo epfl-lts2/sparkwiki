@@ -50,7 +50,7 @@ class DumpProcessor extends Serializable {
   def getPagesByNamespace(pageDf: Dataset[WikipediaPage], ns: Int, keepRedirect: Boolean): Dataset[WikipediaSimplePage] = {
     import session.implicits._
     pageDf.filter(p => p.namespace == ns && (keepRedirect || !p.isRedirect))
-          .select("id", "title", "isRedirect", "isNew", "lang").as[WikipediaSimplePage]
+          .select("id", "title", "isRedirect", "isNew").as[WikipediaSimplePage]
   }
   
   def resolvePageRedirects(pgLinksIdDf:Dataset[MergedPageLink], redirectDf:Dataset[MergedRedirect], pages:Dataset[WikipediaSimplePage]):DataFrame = {
@@ -85,6 +85,7 @@ object DumpProcessor  {
     val pageFile = Paths.get(conf.dumpPath(), conf.namePrefix() + "-page.sql.bz2").toString
     val pageOutput = Paths.get(conf.outputPath(), "page")
     val pageDf = dumpParser.processFileToDf(dp.session, pageFile, WikipediaDumpType.Page).as[WikipediaPage]
+    
     
     val pageLinksFile = Paths.get(conf.dumpPath(), conf.namePrefix() + "-pagelinks.sql.bz2").toString
     val pageLinksOutput = Paths.get(conf.outputPath(), "pagelinks").toString
