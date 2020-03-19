@@ -31,9 +31,9 @@ abstract class WikipediaElement extends Serializable
 
 case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String, 
                           isRedirect:Boolean, isNew:Boolean, random:Double, touched:Timestamp, linksUpdated:String,
-                          latest:Int, len:Int, contentModel:String) extends WikipediaElement
+                          latest:Int, len:Int, contentModel:String, lang:String ) extends WikipediaElement
                           
-case class WikipediaSimplePage(id:Int, title:String, isRedirect:Boolean, isNew: Boolean) extends WikipediaElement                          
+case class WikipediaSimplePage(id:Int, title:String, isRedirect:Boolean, isNew:Boolean, lang:String ) extends WikipediaElement
 case class WikipediaPageLink(from:Int, namespace:Int, title:String, fromNamespace:Int) extends WikipediaElement
 
 case class WikipediaLangLink(from:Int, lang:String, title:String) extends WikipediaElement
