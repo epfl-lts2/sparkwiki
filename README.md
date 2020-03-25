@@ -68,8 +68,7 @@ but can span multiple languages. Language will be extracted from the dump filena
 ### Pagecount processor
 This tool can be run using the class `ch.epfl.lts2.wikipedia.PagecountProcessor` as entry point. It will read a collection of *pagecounts* covering the period
 between arguments `startDate` and `endDate` (inclusive bounds), 
-filter the counts belonging to wikipedia project and having more daily visits than a threshold given by the `minDailyVisit` argument
-and save the result to a cassandra DB, after resolving page ids (either a SQL page dump or a processed SQL page dump (as parquet) must be supplied via the `pageDump` argument).
+filter the counts belonging to wikipedia project and having more daily visits than a threshold given by the `minDailyVisit` argument and save the result to Parquet files or into a Cassandra database, after resolving page ids (either a SQL page dump or a processed SQL page dump (as parquet) must be supplied via the `pageDump` argument).
 
 **Arguments**:
 * `--config` path to configuration file (cf. *config* folder for a sample)
@@ -78,7 +77,8 @@ and save the result to a cassandra DB, after resolving page ids (either a SQL pa
 * `--endDate` last day to process,  formatted as `yyyy-MM-dd`
 * `--languages` list of languages to extract pagecounts for
 * `--pageDump` path to a page SQL dump or a version processed by *DumpParser* and saved as parquet
-* `--outputPath` path to Parquet files with pre-processed pagecounts. You can use these Parquet files as an alternative to Cassandra. For instance, if you want to use the data for further processing in Spark or any other framework that supports Parquet format.
+* `--outputPath` path to Parquet files with pre-processed pagecounts. You can use these Parquet files for further processing in Spark or any other framework that supports Parquet format. 
+If you omit this option, you need a running Cassandra instance to store pagecount data (and set the appropriate connection information in the configuration file).
 
 ### License
 
