@@ -81,6 +81,22 @@ class WikipediaPageLinkParser extends Serializable with WikipediaElementParser[W
   def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
 }
 
+class WikipediaLangLinkParser(lang: String) extends Serializable with WikipediaElementParser[WikipediaLangLink] {
+  val llRegex = """\((\d+),'(.*?)','(.*?)'\)""".r
+
+  def parseLine(lineInput: String):List[WikipediaLangLink] = {
+    val r = llRegex.findAllIn(lineInput).matchData.toList
+    r.map(m => WikipediaLangLink(m.group(1).toInt, m.group(2), m.group(3).replace(" ","_")))
+  }
+
+  def filterElt(t:WikipediaLangLink): Boolean = ( t.lang == this.lang )
+
+  def getRDD(lines: RDD[String]): RDD[WikipediaLangLink] = {
+    lines.flatMap(l => parseLine(l)).filter(filterElt)
+  }
+  def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
+}
+
 class WikipediaRedirectParser extends Serializable with WikipediaElementParser[WikipediaRedirect] {
   /* TABLE `redirect` (
   `rd_from` int(8) unsigned NOT NULL DEFAULT '0',
