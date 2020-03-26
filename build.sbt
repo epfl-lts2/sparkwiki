@@ -8,7 +8,7 @@ lazy val root = (project in file(".")).
       version      := "0.10.2"
     )),
     name := "SparkWiki",
-    resolvers += "Spark Packages Repo" at "http://dl.bintray.com/spark-packages/maven",
+    resolvers += "Spark Packages Repo" at "https://dl.bintray.com/spark-packages/maven",
     libraryDependencies += scalaTest % Test,
     libraryDependencies += "com.typesafe" % "config" % "1.4.0",
     libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.3.4",
