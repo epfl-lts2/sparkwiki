@@ -1,4 +1,4 @@
-image: naspert/wikip-sbt:latest
+image: naspert/moz-sbt:latest
 
 before_script:
   # Log the sbt version
