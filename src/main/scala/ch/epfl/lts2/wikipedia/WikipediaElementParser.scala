@@ -100,6 +100,11 @@ class WikipediaPageLinkParser(elementFilter: ElementFilter[WikipediaPageLink] = 
 
 class WikipediaLangLinkParser(filter: ElementFilter[WikipediaLangLink] = new DefaultElementFilter[WikipediaLangLink])
   extends WikipediaElementParser[WikipediaLangLink](filter) {
+  /* CREATE TABLE `langlinks` (
+    `ll_from` int(8) unsigned NOT NULL DEFAULT '0',
+  `ll_lang` varbinary(20) NOT NULL DEFAULT '',
+  `ll_title` varbinary(255) NOT NULL DEFAULT '',
+  ) */
   val llRegex = """\((\d+),'(.*?)','(.*?)'\)""".r
 
   def parseLine(lineInput: String):List[WikipediaLangLink] = {

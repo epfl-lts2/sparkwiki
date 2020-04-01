@@ -34,14 +34,10 @@ object DumpLangProcessor {
     val conf = new LangProcessorConf(args)
     val dumpParser = new DumpParser
     val languages = conf.langList()
-    val custFilter = if (languages.isEmpty)
-      new ElementFilter[WikipediaLangLink] {
-        override def filterElt(t: WikipediaLangLink): Boolean = !t.title.contains(":")
-      }
-    else
-      new ElementFilter[WikipediaLangLink] {
-        override def filterElt(t: WikipediaLangLink): Boolean = !t.title.contains(":") && languages.contains(t.lang)
-      }
+    val custFilter = new ElementFilter[WikipediaLangLink] {
+        override def filterElt(t: WikipediaLangLink): Boolean = !t.title.contains(":") && (languages.isEmpty || languages.contains(t.lang))
+    }
+
 
 
     val langLinksFile = Paths.get(conf.dumpPath(), conf.namePrefix() + "-langlinks.sql.bz2").toString
