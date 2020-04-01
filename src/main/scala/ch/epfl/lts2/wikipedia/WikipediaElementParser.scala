@@ -9,7 +9,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 
 
-trait ElementFilter[T <: WikipediaElement with Product] {
+trait ElementFilter[T <: WikipediaElement with Product] extends Serializable {
   def filterElt(t: T): Boolean
 }
 
