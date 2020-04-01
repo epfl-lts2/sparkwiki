@@ -27,7 +27,8 @@ class DumpParser extends Serializable  with CsvWriter {
     df.write.mode("overwrite").option("compression", "gzip").parquet(outputPath)
   }
   
-  def processToDf(session: SparkSession, input:RDD[String], dumpType:WikipediaDumpType.Value):DataFrame = {
+  def processToDf[T <: WikipediaElement with Product](session: SparkSession, input:RDD[String], dumpType:WikipediaDumpType.Value,
+                  filter: ElementFilter[T] = new DefaultElementFilter[T]):DataFrame = {
     
     val sqlLines = input.filter(l => l.startsWith("INSERT INTO `%s` VALUES".format(dumpType)))
     val records = sqlLines.map(l => splitSqlInsertLine(l))
@@ -37,15 +38,16 @@ class DumpParser extends Serializable  with CsvWriter {
       case WikipediaDumpType.Redirect => new WikipediaRedirectParser
       case WikipediaDumpType.Category => new WikipediaCategoryParser
       case WikipediaDumpType.CategoryLinks => new WikipediaCategoryLinkParser
-      case WikipediaDumpType.LangLinks => new WikipediaLangLinkParser
+      case WikipediaDumpType.LangLinks => new WikipediaLangLinkParser(filter.asInstanceOf[ElementFilter[WikipediaLangLink]])
     }
     
     parser.getDataFrame(session, records)
   }
   
-  def processFileToDf(session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value):DataFrame = {
+  def processFileToDf[T <: WikipediaElement with Product](session: SparkSession, inputFilename:String, dumpType:WikipediaDumpType.Value,
+                      filter: ElementFilter[T] = new DefaultElementFilter[T]):DataFrame = {
     val lines = session.sparkContext.textFile(inputFilename, 4)
-    processToDf(session, lines, dumpType)
+    processToDf[T](session, lines, dumpType, filter)
   }
 
   def splitFilename(fileName:String): DumpInfo = {
@@ -56,8 +58,8 @@ class DumpParser extends Serializable  with CsvWriter {
     DumpInfo(spl(0).stripSuffix("wiki"), spl(1), dt(0))
   }
 
-  def process(session: SparkSession, inputFilenames:List[String], dumpType:WikipediaDumpType.Value, outputPath:String, outputFormat:String) = {
-    val df = inputFilenames.map(f => processFileToDf(session, f, dumpType).withColumn("languageCode", lit(splitFilename(f).langCode)))
+  def process[T <: WikipediaElement with Product](session: SparkSession, inputFilenames:List[String], dumpType:WikipediaDumpType.Value, outputPath:String, outputFormat:String) = {
+    val df = inputFilenames.map(f => processFileToDf[T](session, f, dumpType).withColumn("languageCode", lit(splitFilename(f).langCode)))
                            .reduce((p1, p2) => p1.union(p2))
 
     outputFormat match {
@@ -83,14 +85,15 @@ object DumpParser
     assert(WikipediaNamespace.Page == 0)
     assert(WikipediaNamespace.Category == 14)
     val dumpEltType = dumpType match {
-      case "page" => WikipediaDumpType.Page
-      case "pagelinks" => WikipediaDumpType.PageLinks
-      case "redirect" => WikipediaDumpType.Redirect
-      case "category" => WikipediaDumpType.Category
-      case "categorylinks" => WikipediaDumpType.CategoryLinks
+      case "page" => (WikipediaDumpType.Page, WikipediaPage)
+      case "pagelinks" => (WikipediaDumpType.PageLinks, WikipediaPageLink.getClass)
+      case "redirect" => (WikipediaDumpType.Redirect, WikipediaRedirect)
+      case "category" => (WikipediaDumpType.Category, WikipediaCategory)
+      case "categorylinks" => (WikipediaDumpType.CategoryLinks, WikipediaCategoryLink)
+      case "langlinks" => (WikipediaDumpType.LangLinks, WikipediaLangLink)
     }
 
-    dumpParser.process(session, conf.dumpFilePaths(), dumpEltType, conf.outputPath(), conf.outputFormat())
+    dumpParser.process(session, conf.dumpFilePaths(), dumpEltType._1, conf.outputPath(), conf.outputFormat())
 
   }
 }

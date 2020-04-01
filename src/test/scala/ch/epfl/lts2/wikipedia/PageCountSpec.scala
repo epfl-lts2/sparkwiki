@@ -34,7 +34,11 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   
   
   "WikipediaPagecountParser" should "parse pagecounts correctly" in {
-    val p = new WikipediaPagecountParser(List("en"))
+    val langList = List("en")
+    val enFilter = new ElementFilter[WikipediaPagecount] {
+      override def filterElt(t: WikipediaPagecount): Boolean = langList.contains(t.languageCode)
+    }
+    val p = new WikipediaPagecountParser(enFilter)
     
     val pcLines = pageCount.split('\n').filter(p => !p.startsWith("#"))
     
