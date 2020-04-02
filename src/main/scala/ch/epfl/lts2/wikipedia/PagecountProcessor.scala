@@ -43,7 +43,9 @@ class PagecountProcessor(val dbHost:String, val dbPort:Int, val dbUsername:Strin
                                   .set("spark.cassandra.auth.password", dbPassword)
        
   lazy val session = SparkSession.builder.config(sconf).getOrCreate()
-  val parser = new WikipediaPagecountParser(languages)
+  val parser = new WikipediaPagecountParser(new ElementFilter[WikipediaPagecount] {
+    override def filterElt(t: WikipediaPagecount): Boolean = languages.contains(t.languageCode)
+  })
   val hourParser = new WikipediaHourlyVisitsParser
   
   def dateRange(from:LocalDate, to:LocalDate, step:Period):Iterator[LocalDate] = {

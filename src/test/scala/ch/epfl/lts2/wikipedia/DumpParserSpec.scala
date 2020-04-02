@@ -119,5 +119,31 @@ class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData
     val dii_small = dp.splitFilename("frwiki-20190901-page.small.sql.bz2")
     assert(dii_small.langCode == "fr" && dii_small.dateCode == "20190901" & dii_small.dumpType == "page")
   }
+
+  it should "parse langlinks insert statements correctly" in {
+    import spark.implicits._
+    val dp = new DumpParser
+    val frFilter = new ElementFilter[WikipediaLangLink] {
+      override def filterElt(t: WikipediaLangLink): Boolean = t.lang == "fr"
+    }
+    val esFilter = new ElementFilter[WikipediaLangLink] {
+      override def filterElt(t: WikipediaLangLink): Boolean = t.lang == "es"
+    }
+    val dfr = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(langLinksFr), 2), WikipediaDumpType.LangLinks, frFilter)
+    val resfr = dfr.as[WikipediaLangLink].collect()
+    assert(resfr.length == 15)
+
+    val dfr2 = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(langLinksFr2), 2), WikipediaDumpType.LangLinks, frFilter)
+    val resfr2 = dfr2.as[WikipediaLangLink].collect()
+    assert(resfr2.length == 2) // test if empty entries are filtered out correctly
+
+    val desEmpt = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(langLinksEs), 2), WikipediaDumpType.LangLinks, frFilter)
+    val resesEmpt = desEmpt.as[WikipediaLangLink].collect()
+    assert(resesEmpt.isEmpty)
+
+    val des = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(langLinksEs), 2), WikipediaDumpType.LangLinks, esFilter)
+    val reses = des.as[WikipediaLangLink].collect()
+    assert(reses.length == 11)
+  }
     
 }

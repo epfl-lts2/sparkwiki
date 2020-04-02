@@ -100,4 +100,18 @@ en.z 16th_parallel_north 17 B1C1E2I1M1N1O3P2Q1R1S1W2"""
 
   val pageCount2 = List("en.z AfghanistanHistory 200 A20B20C20D20E20F20G20H20I20J20", "en.z Category:Anarchism 300 A60B60C60D60E60", 
                         "en.z AccessibleComputing 120 A30B30C30D30", "en.z AnchorageAlaska 3000 E600F600G600H600J600")
+
+  // 15 elts
+  val langLinksFr = "INSERT INTO `langlinks` VALUES (34893,'fr','1640'),(47926106,'fr','1640 en France'),(2551557,'fr','1640 en arts plastiques'),(226379,'fr','1640 en littérature')," +
+    "(5643747,'fr','1640 en musique classique'),(467170,'fr','1640 en science'),(35202,'fr','1641'),(47474227,'fr','1641 en France')," +
+    "(10534777,'fr','1641 en arts plastiques'),(226378,'fr','1641 en littérature'),(342117,'fr','1641 en musique classique')," +
+    "(473747,'fr','1641 en science'),(34587,'fr','1642'),(46591012,'fr','1642 en France'),(3267785,'fr','1642 en arts plastiques');"
+
+  val langLinksFr2 = "INSERT INTO `langlinks` VALUES (34893,'fr','1640'),(47926106,'fr',''),(2551557,'fr','1640 en arts plastiques');"
+
+  // 11 elts
+  val langLinksEs = "INSERT INTO `langlinks` VALUES (20540019,'es','Algerian'),(24509264,'es','Algeripithecus'),(4524756,'es','Algermissen')," +
+    "(995766,'es','Algernon Bertram Freeman Mitford'),(164993,'es','Algernon Blackwood'),(58090661,'es','Algernon Charles Swinburne')," +
+    "(17017671,'es','Algernon Mayow Talmage'),(23728564,'es','Algernon Percy (diplomático)'),(7731133,'es','Algernon Percy, I conde de Beverley')," +
+    "(603447,'es','Algernon Percy, IV duque de Northumberland'),(2234898,'es','Algernon Percy, VI duque de Northumberland');"
 }

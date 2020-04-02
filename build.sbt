@@ -5,7 +5,7 @@ lazy val root = (project in file(".")).
     inThisBuild(List(
       organization := "ch.epfl.lts2",
       scalaVersion := "2.11.11",
-      version      := "0.10.2"
+      version      := "0.11.0"
     )),
     name := "SparkWiki",
     resolvers += "Spark Packages Repo" at "https://dl.bintray.com/spark-packages/maven",

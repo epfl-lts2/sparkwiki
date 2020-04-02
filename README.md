@@ -30,7 +30,7 @@ processors in the system), e.g. unsing a command such as
 
 Every tool can be run via `spark-submit`, e.g.
 ```
-./spark-submit --class ch.epfl.lts2.wikipedia.[ToolNameHere]  --master 'local[*]' --executor-memory 4g --driver-memory 4g --packages org.rogach:scallop_2.11:3.1.5,com.datastax.spark:spark-cassandra-connector_2.11:2.4.0 ./sparkwiki/target/scala-2.11/sparkwiki_2.11-0.6.8.jar [ToolArgsHere]
+./spark-submit --class ch.epfl.lts2.wikipedia.[ToolNameHere]  --master 'local[*]' --executor-memory 4g --driver-memory 4g --packages org.rogach:scallop_2.11:3.3.1 ./sparkwiki/target/scala-2.11/sparkwiki_2.11-0.11.0.jar [ToolArgsHere]
 ```
 
 ### Build
@@ -60,9 +60,11 @@ but can span multiple languages. Language will be extracted from the dump filena
 
 **Arguments**:
 * `--dumpFilePaths` path to the .sql.gz or sql.bz2 SQL dumps to read
-* `--dumpType` should be *page*, *redirect*, *pagelinks*, *category* or *categorylinks*
+* `--dumpType` should be *page*, *redirect*, *pagelinks*, *category*, *categorylinks* or *langlinks*
 * `--outputPath` output directory
 * `--outputFormat` (default=*csv*), should be *csv* or *parquet*
+* `--languages` (optional, only used for *langlinks*), extract only links pointing to the specified languages, 
+e.g. `--languages fr es` to keep only links pointing to french and spanish versions.
 
 
 ### Pagecount processor
@@ -75,7 +77,7 @@ filter the counts belonging to wikipedia project and having more daily visits th
 * `--basePath` directory containing pagecounts files
 * `--startDate` first day to process, formatted as `yyyy-MM-dd`, e.g. 2018-08-03
 * `--endDate` last day to process,  formatted as `yyyy-MM-dd`
-* `--languages` list of languages to extract pagecounts for
+* `--languages` list of languages to extract pagecounts for, e.g. `--languages en fr ru` to process french, english and russian languages. 
 * `--pageDump` path to a page SQL dump or a version processed by *DumpParser* and saved as parquet
 * `--outputPath` path to Parquet files with pre-processed pagecounts. You can use these Parquet files for further processing in Spark or any other framework that supports Parquet format. 
 If you omit this option, you need a running Cassandra instance to store pagecount data (and set the appropriate connection information in the configuration file).

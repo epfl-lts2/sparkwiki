@@ -13,6 +13,7 @@ object WikipediaDumpType extends Enumeration {
   val Redirect = Value("redirect")
   val Category = Value("category")
   val CategoryLinks = Value("categorylinks")
+  val LangLinks = Value("langlinks")
 }
 
 object WikipediaNamespace extends Enumeration {
@@ -33,8 +34,9 @@ case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String
                           latest:Int, len:Int, contentModel:String) extends WikipediaElement
                           
 case class WikipediaSimplePage(id:Int, title:String, isRedirect:Boolean, isNew: Boolean) extends WikipediaElement                          
-case class WikipediaPageLink(from:Int, namespace:Int, title:String, fromNamespace:Int) extends WikipediaElement 
+case class WikipediaPageLink(from:Int, namespace:Int, title:String, fromNamespace:Int) extends WikipediaElement
 
+case class WikipediaLangLink(from:Int, lang:String, title:String) extends WikipediaElement
 
 case class WikipediaRedirect(from:Int, targetNamespace:Int, title:String, interwiki:String, fragment:String) extends WikipediaElement 
 

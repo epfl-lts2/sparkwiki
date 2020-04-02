@@ -8,15 +8,31 @@ import java.util.Date
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 
-trait WikipediaElementParser[T <: WikipediaElement with Product] {
-  def parseLine(lineInput:String): List[T]
+
+trait ElementFilter[T <: WikipediaElement with Product] extends Serializable {
   def filterElt(t: T): Boolean
-  def getRDD(lines: RDD[String]): RDD[T]
-  def getDataFrame(session:SparkSession, data: RDD[String]):DataFrame
-  
 }
 
-class WikipediaPageParser extends Serializable with WikipediaElementParser[WikipediaPage]  {
+sealed class DefaultElementFilter[T <: WikipediaElement with Product] extends ElementFilter[T] {
+  def filterElt(t:T):Boolean = true
+}
+
+
+trait WikipediaElementParserBase[T <: WikipediaElement with Product] {
+  def parseLine(lineInput:String): List[T]
+  def getRDD(lines: RDD[String]): RDD[T]
+  def getDataFrame(session:SparkSession, data: RDD[String]):DataFrame
+  def defaultFilterElt(t: T):Boolean
+  def filterElt(t: T): Boolean
+}
+
+abstract class WikipediaElementParser[T <: WikipediaElement with Product](elementFilter: ElementFilter[T])
+  extends WikipediaElementParserBase[T] with Serializable {
+  override def filterElt(t: T): Boolean = elementFilter.filterElt(t) && defaultFilterElt(t)
+}
+
+
+class WikipediaPageParser(elementFilter: ElementFilter[WikipediaPage] = new DefaultElementFilter[WikipediaPage]) extends WikipediaElementParser[WikipediaPage](elementFilter) {
   
   /*
    * # page
@@ -46,10 +62,10 @@ class WikipediaPageParser extends Serializable with WikipediaElementParser[Wikip
                         m.group(11).toInt, m.group(12)))
       
   }
-    
-  
-  def filterElt(t: WikipediaPage):Boolean = (t.namespace == WikipediaNamespace.Page || 
-                                             t.namespace == WikipediaNamespace.Category)
+
+
+  def defaultFilterElt(t: WikipediaPage): Boolean =  (t.namespace == WikipediaNamespace.Page ||
+                                                      t.namespace == WikipediaNamespace.Category)
                                              
   def getRDD(lines: RDD[String]): RDD[WikipediaPage] = {
     lines.flatMap(l => parseLine(l)).filter(filterElt)
@@ -58,7 +74,8 @@ class WikipediaPageParser extends Serializable with WikipediaElementParser[Wikip
  
 }
 
-class WikipediaPageLinkParser extends Serializable with WikipediaElementParser[WikipediaPageLink] {
+class WikipediaPageLinkParser(elementFilter: ElementFilter[WikipediaPageLink] = new DefaultElementFilter[WikipediaPageLink])
+  extends WikipediaElementParser[WikipediaPageLink](elementFilter) {
   /*
    * # pagelinks
 `pl_from` int(8) unsigned NOT NULL DEFAULT '0',
@@ -73,7 +90,7 @@ class WikipediaPageLinkParser extends Serializable with WikipediaElementParser[W
   }
   
   
-  def filterElt(t:WikipediaPageLink): Boolean = (t.namespace == WikipediaNamespace.Page || t.namespace == WikipediaNamespace.Category) && 
+  def defaultFilterElt(t:WikipediaPageLink): Boolean = (t.namespace == WikipediaNamespace.Page || t.namespace == WikipediaNamespace.Category) &&
                                                 (t.fromNamespace == WikipediaNamespace.Page || t.fromNamespace == WikipediaNamespace.Category)
   def getRDD(lines: RDD[String]): RDD[WikipediaPageLink] = {
     lines.flatMap(l => parseLine(l)).filter(filterElt)
@@ -81,7 +98,30 @@ class WikipediaPageLinkParser extends Serializable with WikipediaElementParser[W
   def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
 }
 
-class WikipediaRedirectParser extends Serializable with WikipediaElementParser[WikipediaRedirect] {
+class WikipediaLangLinkParser(filter: ElementFilter[WikipediaLangLink] = new DefaultElementFilter[WikipediaLangLink])
+  extends WikipediaElementParser[WikipediaLangLink](filter) {
+  /* CREATE TABLE `langlinks` (
+    `ll_from` int(8) unsigned NOT NULL DEFAULT '0',
+  `ll_lang` varbinary(20) NOT NULL DEFAULT '',
+  `ll_title` varbinary(255) NOT NULL DEFAULT '',
+  ) */
+  val llRegex = """\((\d+),'(.*?)','(.*?)'\)""".r
+
+  def parseLine(lineInput: String):List[WikipediaLangLink] = {
+    val r = llRegex.findAllIn(lineInput).matchData.toList
+    r.map(m => WikipediaLangLink(m.group(1).toInt, m.group(2), m.group(3).replace(" ","_")))
+  }
+
+  def defaultFilterElt(t:WikipediaLangLink): Boolean = !t.title.isEmpty
+
+  def getRDD(lines: RDD[String]): RDD[WikipediaLangLink] = {
+    lines.flatMap(l => parseLine(l)).filter(filterElt)
+  }
+  def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
+}
+
+class WikipediaRedirectParser(elementFilter: ElementFilter[WikipediaRedirect] = new DefaultElementFilter[WikipediaRedirect])
+  extends  WikipediaElementParser[WikipediaRedirect](elementFilter) {
   /* TABLE `redirect` (
   `rd_from` int(8) unsigned NOT NULL DEFAULT '0',
   `rd_namespace` int(11) NOT NULL DEFAULT '0',
@@ -97,14 +137,15 @@ class WikipediaRedirectParser extends Serializable with WikipediaElementParser[W
   }
   
   
-  def filterElt(t: WikipediaRedirect):Boolean = t.targetNamespace == WikipediaNamespace.Page || t.targetNamespace == WikipediaNamespace.Category
+  def defaultFilterElt(t: WikipediaRedirect):Boolean = t.targetNamespace == WikipediaNamespace.Page || t.targetNamespace == WikipediaNamespace.Category
   def getRDD(lines: RDD[String]):RDD[WikipediaRedirect] = {
     lines.flatMap(l => parseLine(l)).filter(filterElt)
   }
   def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
 }
 
-class WikipediaCategoryParser extends Serializable with WikipediaElementParser[WikipediaCategory] {
+class WikipediaCategoryParser(elementFilter: ElementFilter[WikipediaCategory] = new DefaultElementFilter[WikipediaCategory])
+  extends WikipediaElementParser[WikipediaCategory](elementFilter) {
   /*TABLE `category` (
   `cat_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `cat_title` varbinary(255) NOT NULL DEFAULT '',
@@ -117,14 +158,15 @@ class WikipediaCategoryParser extends Serializable with WikipediaElementParser[W
     r.map(m => WikipediaCategory(m.group(1).toInt, m.group(2), m.group(3).toInt, m.group(4).toInt, m.group(5).toInt))
   }
   
-  def filterElt(t: WikipediaCategory):Boolean = true
+  def defaultFilterElt(t: WikipediaCategory):Boolean = true
   def getRDD(lines:RDD[String]):RDD[WikipediaCategory] = {
     lines.flatMap(l => parseLine(l)).filter(filterElt)
   }
   def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
 }
 
-class WikipediaCategoryLinkParser extends Serializable with WikipediaElementParser[WikipediaCategoryLink] {
+class WikipediaCategoryLinkParser(elementFilter: ElementFilter[WikipediaCategoryLink] = new DefaultElementFilter[WikipediaCategoryLink])
+  extends WikipediaElementParser[WikipediaCategoryLink](elementFilter) {
   /* TABLE `categorylinks` (
   `cl_from` int(8) unsigned NOT NULL DEFAULT '0',
   `cl_to` varbinary(255) NOT NULL DEFAULT '',
@@ -142,14 +184,15 @@ class WikipediaCategoryLinkParser extends Serializable with WikipediaElementPars
     r.map(m => WikipediaCategoryLink(m.group(1).toInt, m.group(2), m.group(3), 
                 new Timestamp(timestampFormat.parse(m.group(4)).getTime), m.group(5), m.group(6), m.group(7)))
   }
-  def filterElt(t: WikipediaCategoryLink):Boolean = true
+  def defaultFilterElt(t: WikipediaCategoryLink):Boolean = true
   def getRDD(lines:RDD[String]):RDD[WikipediaCategoryLink] = {
     lines.flatMap(l => parseLine(l)).filter(filterElt)
   }
   def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
 }
 
-class WikipediaPagecountParser(val languages:List[String]) extends Serializable with WikipediaElementParser[WikipediaPagecount] {
+class WikipediaPagecountParser(elementFilter: ElementFilter[WikipediaPagecount] = new DefaultElementFilter[WikipediaPagecount])
+  extends WikipediaElementParser[WikipediaPagecount](elementFilter) {
   val pageCountRegex = """^([a-z]{2}\.[a-z]) (.*?) (\d+) ((?:[A-Z]\d+)+)$""".r
   val titleNsRegex = """(.*?):(.*?)""".r
   val urlEncodeRegex = """^%[A-F\d]{2}""".r
@@ -185,8 +228,8 @@ class WikipediaPagecountParser(val languages:List[String]) extends Serializable 
     })
   }
   
-  def filterElt(t: WikipediaPagecount):Boolean = languages.contains(t.languageCode) &&
-                                                  (t.namespace == WikipediaNamespace.Page || t.namespace == WikipediaNamespace.Category)
+  def defaultFilterElt(t: WikipediaPagecount):Boolean = (t.namespace == WikipediaNamespace.Page || t.namespace == WikipediaNamespace.Category)
+
                                                               
   def getRDD(lines:RDD[String]):RDD[WikipediaPagecount] = {
     lines.flatMap(l => parseLine(l)).filter(filterElt)
