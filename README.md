@@ -1,10 +1,29 @@
-# Sparkwiki - processing tools for wikipedia data
+# SparkWiki - processing tools for Wikipedia data
 
 [![Build Status](https://travis-ci.com/epfl-lts2/sparkwiki.svg?branch=master)](https://travis-ci.com/epfl-lts2/sparkwiki)
 
+### Use cases
+SparkWiki toolkit can be used in various scenarios where you are interested in researching Wikipedia graph and pageview statistics. Graph and pageviews can be used and studied separately. You can see a few examples below.
+
+**Detecting Spatio-temporal Anomalies in Wikipedia Viewership Statistics**
+
+This toolkit was used in the large-scale experiments for an algorithm performing [Anomaly Detection in Dynamic Graphs](https://arxiv.org/abs/1901.09688). You can see an example of the usage of the pre-processed data in [`ch.epfl.lts2.wikipedia.PagecountProcessor`](https://github.com/epfl-lts2/sparkwiki/blob/master/src/main/scala/ch/epfl/lts2/wikipedia/PeakFinder.scala). This class contains an implementation of the algorithm. The experiments used Wikipedia graph and pagecounts to detect anomalies in viewership statistics of Wikipedia visitors. The graph and pagecounts data are pre-processed using the tools presented in this repository. You can find a brief demo [here](https://github.com/mizvol/anomaly-detection).
+
+**What is Trending on Wikipedia?**
+
+The same [algorithm and implementation](https://github.com/epfl-lts2/sparkwiki/blob/master/src/main/scala/ch/epfl/lts2/wikipedia/PeakFinder.scala) were used to detect trends in multiple language editions of Wikipedia. See more details in the [paper](https://arxiv.org/abs/2002.06885) and a [short 8-min presentation](https://www.youtube.com/watch?v=Oa6WPOv6sHQ).
+
+**Forecasting Wikipedia Page Views with Graph Embeddings**
+
+Another project used this toolkit to pre-process pagecounts. The project's goal was to forecast page-views on Wikipedia. See more details [here](http://cs229.stanford.edu/proj2019aut/data/assignment_308832_raw/26647399.pdf).
+
+**A Knowledge-graph based Taxonomy Construction Method**
+
+A knowledge-graph project used SparkWiki toolkit to construct a Wikipedia-based knowledge graph. See more details [here](http://www.inf.u-szeged.hu/~london/publ/AutoTaxLisboaPoster.pdf)
+
 ## Basics
 Sparkwiki is a set of tools written in Scala (2.11) that aims at processing data from 
-wikipedia, namely 
+Wikipedia, namely 
 * SQL table dumps 
   - [info](https://meta.wikimedia.org/wiki/Data_dumps)
   - [example download](https://dumps.wikimedia.org/enwiki/)
