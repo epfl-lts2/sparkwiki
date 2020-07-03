@@ -33,15 +33,16 @@ class PeakFinderConfig(args: Seq[String]) extends ScallopConf(args) with Seriali
 
 class PeakFinder(parquetPageCount:Boolean, parquetPagecountPath:String, dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String,
                  keySpace: String, tableVisits:String, tableMeta:String,
-                 boltUrl:String, neo4jUser:String, neo4jPass:String, outputPath:String) extends Serializable {
+                 boltUrl:String, neo4jUser:String, neo4jPass:String, neo4jDb:String, outputPath:String) extends Serializable {
   lazy val sparkConfig: SparkConf = new SparkConf().setAppName("Wikipedia activity detector")
         .set("spark.cassandra.connection.host", dbHost)
         .set("spark.cassandra.connection.port", dbPort.toString)
         .set("spark.cassandra.auth.username", dbUsername)
         .set("spark.cassandra.auth.password", dbPassword)
-        .set("spark.neo4j.bolt.url", boltUrl)
-        .set("spark.neo4j.bolt.user", neo4jUser)
-        .set("spark.neo4j.bolt.password", neo4jPass)
+        .set("spark.neo4j.url", boltUrl)
+        .set("spark.neo4j.user", neo4jUser)
+        .set("spark.neo4j.password", neo4jPass)
+        .set("spark.neo4j.database", neo4jDb)
 
   lazy val session: SparkSession = SparkSession.builder.config(sparkConfig).getOrCreate()
 
@@ -204,6 +205,7 @@ class PeakFinder(parquetPageCount:Boolean, parquetPagecountPath:String, dbHost:S
                               cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"),
                               cfg.getString("cassandra.db.tableMeta"),
                               cfg.getString("neo4j.bolt.url"), cfg.getString("neo4j.user"), cfg.getString("neo4j.password"),
+                              cfg.getString("neo4j.database"),
                               outputPath)
       val startDate = LocalDate.parse(cfg.getString("peakfinder.startDate"))
       val endDate = LocalDate.parse(cfg.getString("peakfinder.endDate"))
