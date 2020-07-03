@@ -156,11 +156,11 @@ class PeakFinder(parquetPageCount:Boolean, parquetPagecountPath:String, dbHost:S
     var nodesQuery = ""
     var relsQuery = ""
     if (includeCategories) {
-        nodesQuery = "MATCH (p:Page) WHERE p.id in {nodelist} RETURN p.id AS id, p.title AS value"
-        relsQuery = "MATCH (p1)-[r]->(p2) WHERE p1.id IN {nodelist} AND p2.id IN {nodelist} RETURN p1.id AS source, p2.id AS target, type(r) AS value"
+        nodesQuery = "MATCH (p:Page) WHERE p.id in $nodelist RETURN p.id AS id, p.title AS value"
+        relsQuery = "MATCH (p1)-[r]->(p2) WHERE p1.id IN $nodelist AND p2.id IN $nodelist RETURN p1.id AS source, p2.id AS target, type(r) AS value"
         } else {
-            nodesQuery = "MATCH (p:Page) WHERE NOT 'Category' IN labels(p) AND p.id in {nodelist} RETURN p.id AS id, p.title AS value"
-            relsQuery = "MATCH (p1)-[r]->(p2) WHERE NOT 'Category' IN labels(p1) AND NOT 'Category' IN labels(p2) AND p1.id IN {nodelist} AND p2.id IN {nodelist} RETURN p1.id AS source, p2.id AS target, type(r) AS value"
+            nodesQuery = "MATCH (p:Page) WHERE NOT 'Category' IN labels(p) AND p.id in $nodelist RETURN p.id AS id, p.title AS value"
+            relsQuery = "MATCH (p1)-[r]->(p2) WHERE NOT 'Category' IN labels(p1) AND NOT 'Category' IN labels(p2) AND p1.id IN $nodelist AND p2.id IN $nodelist RETURN p1.id AS source, p2.id AS target, type(r) AS value"
         }
 
     val nodeList = activeNodes.collectAsList() // neo4j connector cannot take RDDs
