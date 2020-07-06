@@ -33,15 +33,16 @@ class PeakFinderConfig(args: Seq[String]) extends ScallopConf(args) with Seriali
 
 class PeakFinder(parquetPageCount:Boolean, parquetPagecountPath:String, dbHost:String, dbPort:Int, dbUsername:String, dbPassword:String,
                  keySpace: String, tableVisits:String, tableMeta:String,
-                 boltUrl:String, neo4jUser:String, neo4jPass:String, outputPath:String) extends Serializable {
+                 neo4jUrl:String, neo4jUser:String, neo4jPass:String, neo4jDb:String, outputPath:String) extends Serializable {
   lazy val sparkConfig: SparkConf = new SparkConf().setAppName("Wikipedia activity detector")
         .set("spark.cassandra.connection.host", dbHost)
         .set("spark.cassandra.connection.port", dbPort.toString)
         .set("spark.cassandra.auth.username", dbUsername)
         .set("spark.cassandra.auth.password", dbPassword)
-        .set("spark.neo4j.bolt.url", boltUrl)
-        .set("spark.neo4j.bolt.user", neo4jUser)
-        .set("spark.neo4j.bolt.password", neo4jPass)
+        .set("spark.neo4j.url", neo4jUrl)
+        .set("spark.neo4j.user", neo4jUser)
+        .set("spark.neo4j.password", neo4jPass)
+        .set("spark.neo4j.database", neo4jDb)
 
   lazy val session: SparkSession = SparkSession.builder.config(sparkConfig).getOrCreate()
 
@@ -155,11 +156,11 @@ class PeakFinder(parquetPageCount:Boolean, parquetPagecountPath:String, dbHost:S
     var nodesQuery = ""
     var relsQuery = ""
     if (includeCategories) {
-        nodesQuery = "MATCH (p:Page) WHERE p.id in {nodelist} RETURN p.id AS id, p.title AS value"
-        relsQuery = "MATCH (p1)-[r]->(p2) WHERE p1.id IN {nodelist} AND p2.id IN {nodelist} RETURN p1.id AS source, p2.id AS target, type(r) AS value"
+        nodesQuery = "MATCH (p:Page) WHERE p.id in $nodelist RETURN p.id AS id, p.title AS value"
+        relsQuery = "MATCH (p1)-[r]->(p2) WHERE p1.id IN $nodelist AND p2.id IN $nodelist RETURN p1.id AS source, p2.id AS target, type(r) AS value"
         } else {
-            nodesQuery = "MATCH (p:Page) WHERE NOT 'Category' IN labels(p) AND p.id in {nodelist} RETURN p.id AS id, p.title AS value"
-            relsQuery = "MATCH (p1)-[r]->(p2) WHERE NOT 'Category' IN labels(p1) AND NOT 'Category' IN labels(p2) AND p1.id IN {nodelist} AND p2.id IN {nodelist} RETURN p1.id AS source, p2.id AS target, type(r) AS value"
+            nodesQuery = "MATCH (p:Page) WHERE NOT 'Category' IN labels(p) AND p.id in $nodelist RETURN p.id AS id, p.title AS value"
+            relsQuery = "MATCH (p1)-[r]->(p2) WHERE NOT 'Category' IN labels(p1) AND NOT 'Category' IN labels(p2) AND p1.id IN $nodelist AND p2.id IN $nodelist RETURN p1.id AS source, p2.id AS target, type(r) AS value"
         }
 
     val nodeList = activeNodes.collectAsList() // neo4j connector cannot take RDDs
@@ -203,7 +204,8 @@ class PeakFinder(parquetPageCount:Boolean, parquetPagecountPath:String, dbHost:S
                               cfg.getString("cassandra.db.username"), cfg.getString("cassandra.db.password"),
                               cfg.getString("cassandra.db.keyspace"), cfg.getString("cassandra.db.tableVisits"),
                               cfg.getString("cassandra.db.tableMeta"),
-                              cfg.getString("neo4j.bolt.url"), cfg.getString("neo4j.user"), cfg.getString("neo4j.password"),
+                              cfg.getString("neo4j.url"), cfg.getString("neo4j.user"), cfg.getString("neo4j.password"),
+                              cfg.getString("neo4j.database"),
                               outputPath)
       val startDate = LocalDate.parse(cfg.getString("peakfinder.startDate"))
       val endDate = LocalDate.parse(cfg.getString("peakfinder.endDate"))
