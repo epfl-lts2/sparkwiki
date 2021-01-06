@@ -75,7 +75,7 @@ trait TestData {
     "(6533,'Pages_using_citations_with_format_and_no_URL','U9??9)AM^F^D-7)K?1M^C^F-7)K?1M^DU9','2013-04-05 16:17:50','Williams, Charles','uca-default-u-kn','page'),"+
     "(6533,'People_educated_at_St_Albans_School,_Hertfordshire','U9??','2011-08-24 20:20:49','Williams, Charles','uca-default-u-kn','page');"
     
-  val pageCount = """en.z 16th_World_Science_Fiction_Convention 1 D1
+  val pageCountLegacy = """en.z 16th_World_Science_Fiction_Convention 1 D1
 en.z 16th_World_Scout_Jamboree 7 B4K1S2
 en.z 16th_amendment 2 C1P1
 #comment line should be skipped
@@ -98,7 +98,7 @@ en.z 16th_meridian_east 7 C2G1H1J1L1P1
 en.z 16th_note 1 M1
 en.z 16th_parallel_north 17 B1C1E2I1M1N1O3P2Q1R1S1W2"""
 
-  val pageCount2 = List("en.z AfghanistanHistory 200 A20B20C20D20E20F20G20H20I20J20", "en.z Category:Anarchism 300 A60B60C60D60E60", 
+  val pageCountLegacy2 = List("en.z AfghanistanHistory 200 A20B20C20D20E20F20G20H20I20J20", "en.z Category:Anarchism 300 A60B60C60D60E60",
                         "en.z AccessibleComputing 120 A30B30C30D30", "en.z AnchorageAlaska 3000 E600F600G600H600J600")
 
   // 15 elts

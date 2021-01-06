@@ -34,14 +34,14 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   }
   
   
-  "WikipediaPagecountParser" should "parse pagecounts correctly" in {
+  "WikipediaPagecountParser" should "parse pagecounts (legacy) correctly" in {
     val langList = List("en")
     val enFilter = new ElementFilter[WikipediaPagecount] {
       override def filterElt(t: WikipediaPagecount): Boolean = langList.contains(t.languageCode)
     }
     val p = new WikipediaPagecountLegacyParser(enFilter)
     
-    val pcLines = pageCount.split('\n').filter(p => !p.startsWith("#"))
+    val pcLines = pageCountLegacy.split('\n').filter(p => !p.startsWith("#"))
     
     val rdd = p.getRDD(spark.sparkContext.parallelize(pcLines, 2))
     val resMap = rdd.map(w => (w.title, w)).collect().toMap
@@ -91,10 +91,10 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
     assert(ts4 == tsref2)
   }
   
-  it should "read correctly pagecounts" in {
+  it should "read correctly pagecounts (legacy)" in {
     val p = new PagecountProcessor(List("en"), new WikipediaPagecountLegacyParser(),
                                    ConfigFactory.parseString(""), false)
-    val rdd = p.parseLines(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
+    val rdd = p.parseLines(spark.sparkContext.parallelize(pageCountLegacy2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
     val refTime = Timestamp.valueOf(LocalDate.of(2018,8,1).atStartOfDay)
     val res1 = rdd.filter(f => f.title == "Anarchism").collect()
     val res2 = rdd.filter(f => f.title == "AfghanistanHistory").collect()
@@ -115,7 +115,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
     import spark.implicits._
     val p = new PagecountProcessor(List("en"), new WikipediaPagecountLegacyParser(),
                                    ConfigFactory.parseString(""), false)
-    val pcDf = p.parseLinesToDf(spark.sparkContext.parallelize(pageCount2, 2), 150, 2000, LocalDate.of(2018, 8, 1))
+    val pcDf = p.parseLinesToDf(spark.sparkContext.parallelize(pageCountLegacy2, 2), 150, 2000, LocalDate.of(2018, 8, 1))
     assert(pcDf.count() == 3)
     val res = pcDf.filter(p => p.title == "AccessibleComputing").collect()
     assert(res.isEmpty)
@@ -126,7 +126,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
     import spark.implicits._
     val p = new PagecountProcessor(List("en"), new WikipediaPagecountLegacyParser(),
                                    ConfigFactory.parseString(""), false)
-    val pcDf = p.parseLinesToDf(spark.sparkContext.parallelize(pageCount2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
+    val pcDf = p.parseLinesToDf(spark.sparkContext.parallelize(pageCountLegacy2, 2), 100, 2000, LocalDate.of(2018, 8, 1))
     val dp = new DumpParser
     
     val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPage), 2), WikipediaDumpType.Page)

@@ -5,8 +5,7 @@ import java.nio.file.Paths
 import java.sql.Timestamp
 import java.time._
 import java.time.format.DateTimeFormatter
-
-import com.typesafe.config.{ConfigFactory, Config, ConfigValueFactory}
+import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions._
@@ -110,6 +109,18 @@ class PagecountProcessor(val languages: List[String], val parser: WikipediaEleme
     }
   }
 
+  def getResult(pageDumpPath: String, keepRedirects: Boolean, dfVisits: Dataset[PageVisits]) = {
+    import session.implicits._
+    val pgDf = getPageDataFrame(pageDumpPath)
+      .filter(p => keepRedirects || !p.isRedirect)
+
+    // join page and page count
+    val pcDfId = mergePagecount(pgDf, dfVisits)
+      .groupBy("id", "languageCode")
+      .agg(flatten(collect_list("visits")).alias("visits")).as[PageVisitsId]
+    pcDfId.flatMap(p => p.visits.map(v => PageVisitRow(p.languageCode, p.id, v.time, v.count)))
+  }
+
   def getEarliestDate(current:Timestamp, newDate: LocalDate):Timestamp = {
     val newTime = newDate.atStartOfDay
     if (newTime.isBefore(current.toLocalDateTime))
@@ -149,6 +160,7 @@ object PagecountProcessor {
       new WikipediaPagecountParser(eltFilter)
   }
 
+
   def main(args:Array[String]):Unit = {
     val cfgBase = new PagecountConf(args)
     val cfgDefault = ConfigFactory.parseString("cassandra.db.port=9042,pagecountProcessor.keepRedirects=false")
@@ -166,17 +178,9 @@ object PagecountProcessor {
     import pgCountProcessor.session.implicits._
     val pcRdd = pgInputRdd.transform((d, p) => pgCountProcessor.parseLinesToDf(p, cfgFinal.getInt("pagecountProcessor.minDailyVisits"), cfg.getInt("pagecountProcessor.minDailyVisitsHourlySplit"), d))
     val dfVisits = pcRdd.values.reduce((p1, p2) => p1.union(p2)) // group all rdd's into one
-    
-    
-    
-    val pgDf = pgCountProcessor.getPageDataFrame(cfgBase.pageDump())
-                               .filter(p => cfgFinal.getBoolean("pagecountProcessor.keepRedirects") || !p.isRedirect)
-                               
-    // join page and page count
-    val pcDfId = pgCountProcessor.mergePagecount(pgDf, dfVisits)
-                     .groupBy("id", "languageCode")
-                     .agg(flatten(collect_list("visits")).alias("visits")).as[PageVisitsId]
-    val pgVisitRows = pcDfId.flatMap(p => p.visits.map(v => PageVisitRow(p.languageCode, p.id, v.time, v.count)))
+
+    val pgVisitRows = pgCountProcessor.getResult(cfgBase.pageDump(),
+                                                  cfgFinal.getBoolean("pagecountProcessor.keepRedirects"), dfVisits)
 
     pgCountProcessor.saveResult(pgVisitRows, cfgBase.startDate(), cfgBase.endDate())
   }
