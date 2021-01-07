@@ -146,7 +146,8 @@ class PagecountProcessor(val languages: List[String], val parser: WikipediaEleme
 
 object PagecountProcessor {
   
-  val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+  val legacyDateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+  val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
   val flatten = udf((xs: Seq[Seq[Visit]]) => xs.flatten) // helper function
 
 
@@ -158,6 +159,13 @@ object PagecountProcessor {
       new WikipediaPagecountLegacyParser(eltFilter)
     else
       new WikipediaPagecountParser(eltFilter)
+  }
+
+  def formatFilename(basePath:String, date:LocalDate, legacyPageCount:Boolean) = {
+    if (legacyPageCount)
+      Paths.get(basePath, "pagecounts-" + date.format(legacyDateFormatter) + ".bz2").toString
+    else
+      Paths.get(basePath, "pagecounts-" + date.format(dateFormatter) + "-user.bz2").toString
   }
 
 
@@ -172,7 +180,7 @@ object PagecountProcessor {
     val pgCountProcessor = new PagecountProcessor(languages, getParser(legacyPageCount, languages), cfgFinal, saveToCassandra)
     
     val range = pgCountProcessor.dateRange(cfgBase.startDate(), cfgBase.endDate(), Period.ofDays(1))
-    val files = range.map(d => (d, Paths.get(cfgBase.basePath(), "pagecounts-" + d.format(dateFormatter) + ".bz2").toString)).toMap
+    val files = range.map(d => (d, formatFilename(cfgBase.basePath(), d, legacyPageCount))).toMap
     val pgInputRdd = files.mapValues(p => pgCountProcessor.session.sparkContext.textFile(p))
     
     import pgCountProcessor.session.implicits._
