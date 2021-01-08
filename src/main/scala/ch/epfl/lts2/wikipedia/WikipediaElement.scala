@@ -47,7 +47,7 @@ case class WikipediaCategory(id:Int, title:String, pages:Int, subcats:Int, files
 case class WikipediaCategoryLink(from:Int, to:String, sortKey:String, timestamp:Timestamp, 
                                   sortkeyPrefix:String, collation:String, ctype:String) extends WikipediaElement
 
-case class WikipediaPagecount(languageCode:String, title:String, namespace: Int, id:Int, dailyVisits:Int, hourlyVisits:String) extends WikipediaElement
+case class WikipediaPagecount(languageCode:String, title:String, namespace: Int, id:Int, source:String, dailyVisits:Int, hourlyVisits:String) extends WikipediaElement
 
 case class WikipediaHourlyVisit(time:LocalDateTime, visits:Int) extends WikipediaElement
 

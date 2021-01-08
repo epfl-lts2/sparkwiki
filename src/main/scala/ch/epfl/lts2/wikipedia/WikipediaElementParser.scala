@@ -213,7 +213,7 @@ class WikipediaPagecountParser(elementFilter: ElementFilter[WikipediaPagecount] 
         case "Book" => WikipediaNamespace.Book
         case _ => WikipediaNamespace.Dummy
       }
-      WikipediaPagecount(langCode, m.group(2), ns, pageId, m.group(5).toInt, m.group(6))
+      WikipediaPagecount(langCode, m.group(2), ns, pageId, m.group(4), m.group(5).toInt, m.group(6))
     })
   }
   override def defaultFilterElt(t: WikipediaPagecount): Boolean = true
@@ -255,7 +255,7 @@ class WikipediaPagecountLegacyParser(elementFilter: ElementFilter[WikipediaPagec
       // extract lang code
       val langCode = m.group(1).split('.')(0)
       // In 'old' pagecounts, there is no id so return -1
-      WikipediaPagecount(langCode, title, ns, -1, m.group(3).toInt, m.group(4)) // language = 1st two chars of project name
+      WikipediaPagecount(langCode, title, ns, -1, "web", m.group(3).toInt, m.group(4)) // language = 1st two chars of project name
 
     })
   }

@@ -165,7 +165,7 @@ object PagecountProcessor {
     if (legacyPageCount)
       Paths.get(basePath, "pagecounts-" + date.format(legacyDateFormatter) + ".bz2").toString
     else
-      Paths.get(basePath, "pagecounts-" + date.format(dateFormatter) + "-user.bz2").toString
+      Paths.get(basePath, "pageviews-" + date.format(dateFormatter) + "-user.bz2").toString
   }
 
 
