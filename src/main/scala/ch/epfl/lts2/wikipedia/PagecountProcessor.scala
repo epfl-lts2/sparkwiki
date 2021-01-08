@@ -34,7 +34,7 @@ case class PageVisitsId(languageCode:String, id:Int, visits:List[Visit])
 case class PageVisitRow(languageCode:String, page_id:Long, visit_time: Timestamp, count:Int)
 
 class PagecountProcessor(val languages: List[String], val parser: WikipediaElementParser[WikipediaPagecount],
-                         val cfg: Config, val saveToCassandra:Boolean)
+                         val cfg: Config, val saveToCassandra:Boolean, val legacyPageCount: Boolean)
   extends Serializable with JsonWriter with CsvWriter {
 
   private def createSparkConf(cfg: Config, saveToCassandra: Boolean) = {
@@ -74,7 +74,8 @@ class PagecountProcessor(val languages: List[String], val parser: WikipediaEleme
   
   def parseLinesToDf(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):Dataset[PageVisits] = {
     import session.implicits._
-    val rdd = parseLines(input, minDailyVisits, minDailyVisitsHourSplit, date)
+    val rdd = if (legacyPageCount) parseLinesLegacy(input, minDailyVisits, minDailyVisitsHourSplit, date)
+    else parseLines(input, minDailyVisits, minDailyVisitsHourSplit, date)
     session.createDataFrame(rdd).as[PageVisits]
   }
   
@@ -85,11 +86,39 @@ class PagecountProcessor(val languages: List[String], val parser: WikipediaEleme
     else List(Visit(Timestamp.valueOf(date.atStartOfDay), p.dailyVisits, "Day"))  
   }
 
-  def parseLines(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):RDD[PageVisits] = {
+  def parseLinesLegacy(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):RDD[PageVisits] = {
 
      parser.getRDD(input.filter(!_.startsWith("#")))
            .filter(w => w.dailyVisits > minDailyVisits)
            .map(p => PageVisits(p.languageCode, p.title, p.namespace, getPageVisit(p, minDailyVisitsHourSplit, date)))
+  }
+
+  protected def aggHourlyVisits(input:String): String = {
+    val aggRegex = """([A-X])(\d+)""".r
+    val resMap = aggRegex.findAllIn(input).matchData.toList
+                                          .groupBy(_.group(1))
+                                          .mapValues(v => v.foldLeft(0)(_ + _.group(2).toInt))
+    // resMap: Map[String,Int] = Map(E -> 393, X -> 457, N -> 331, T -> 469, J -> 22...)
+    resMap.toSeq.sortBy(_._1).foldLeft("")((a,b) => a + (b._1 + b._2.toString))
+  }
+
+  def parseLines(input:RDD[String], minDailyVisits:Int, minDailyVisitsHourSplit:Int, date:LocalDate):RDD[PageVisits] = {
+    import session.implicits._
+    val hourlyVisitUdf = udf((s:String) => aggHourlyVisits(s))
+    val visitsRow = session.createDataFrame(parser.getRDD(input.filter(!_.startsWith("#")))).as[WikipediaPagecount]
+    // aggregate results per source
+    val visitsAgg = visitsRow.groupBy("title", "languageCode", "namespace")
+                             .agg(sum("dailyVisits") as "totalDailyVisits",
+                                  concat_ws("", collect_list("hourlyVisits")) as "aggHourlyVisits")
+                            // now all the visits modalities are counted, we can filter
+                            .where($"totalDailyVisits" > minDailyVisits)
+                            .select($"title", $"languageCode", $"namespace", $"totalDailyVisits", hourlyVisitUdf($"aggHourlyVisits"))
+                            .withColumnRenamed("totalDailyVisits", "dailyVisits")
+                            .withColumnRenamed("aggHourlyVisits", "hourlyVisits")
+                            .withColumn("source", lit("web")).as[WikipediaPagecount]
+
+    // finally...
+    visitsAgg.rdd.map(p => PageVisits(p.languageCode, p.title, p.namespace, getPageVisit(p, minDailyVisitsHourSplit, date)))
   }
 
   def mergePagecount(pageDf:Dataset[WikipediaPageLang], pagecountDf:Dataset[PageVisits]): Dataset[PageVisitsIdFull] = {
@@ -177,7 +206,8 @@ object PagecountProcessor {
     val legacyPageCount = cfgBase.legacyPagecount()
     val saveToCassandra = cfgBase.outputPath.isEmpty
     val cfgFinal = if (saveToCassandra) cfg else cfg.withValue("outputPath", ConfigValueFactory.fromAnyRef(cfgBase.outputPath()))
-    val pgCountProcessor = new PagecountProcessor(languages, getParser(legacyPageCount, languages), cfgFinal, saveToCassandra)
+    val pgCountProcessor = new PagecountProcessor(languages, getParser(legacyPageCount, languages),
+                                                  cfgFinal, saveToCassandra, legacyPageCount)
     
     val range = pgCountProcessor.dateRange(cfgBase.startDate(), cfgBase.endDate(), Period.ofDays(1))
     val files = range.map(d => (d, formatFilename(cfgBase.basePath(), d, legacyPageCount))).toMap

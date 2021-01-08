@@ -193,7 +193,7 @@ class WikipediaCategoryLinkParser(elementFilter: ElementFilter[WikipediaCategory
 
 class WikipediaPagecountParser(elementFilter: ElementFilter[WikipediaPagecount] = new DefaultElementFilter[WikipediaPagecount])
   extends WikipediaElementParser[WikipediaPagecount](elementFilter) {
-  val pageCountRegex = """^([a-z]{2}\.[a-z]+) (.*?) (\d+|null) (.*?) (\d+) ((?:[A-Z]\d+)+)$""".r
+  val pageCountRegex = """^([a-z]{2}\.[a-z]+) (.*?) \d+|null (.*?) (\d+) ((?:[A-Z]\d+)+)$""".r
   val titleNsRegex = """(.*?):(.*?)""".r
 
   override def parseLine(lineInput: String): List[WikipediaPagecount] = {
@@ -201,7 +201,6 @@ class WikipediaPagecountParser(elementFilter: ElementFilter[WikipediaPagecount] 
     r.map(m => {
       // extract lang code
       val langCode = m.group(1).split('.')(0)
-      val pageId = if (m.group(3) == "null") -1 else m.group(3).toInt
       // get namespace
       val (title, nsStr) = m.group(2) match {
         case titleNsRegex(nsStr, title) => (title, nsStr)
@@ -213,7 +212,7 @@ class WikipediaPagecountParser(elementFilter: ElementFilter[WikipediaPagecount] 
         case "Book" => WikipediaNamespace.Book
         case _ => WikipediaNamespace.Dummy
       }
-      WikipediaPagecount(langCode, m.group(2), ns, pageId, m.group(4), m.group(5).toInt, m.group(6))
+      WikipediaPagecount(langCode, m.group(2), ns, m.group(4), m.group(5).toInt, m.group(6))
     })
   }
   override def defaultFilterElt(t: WikipediaPagecount): Boolean = true
@@ -254,8 +253,8 @@ class WikipediaPagecountLegacyParser(elementFilter: ElementFilter[WikipediaPagec
       }
       // extract lang code
       val langCode = m.group(1).split('.')(0)
-      // In 'old' pagecounts, there is no id so return -1
-      WikipediaPagecount(langCode, title, ns, -1, "web", m.group(3).toInt, m.group(4)) // language = 1st two chars of project name
+      // In 'old' pagecounts, there is no source so return "web"
+      WikipediaPagecount(langCode, title, ns, "web", m.group(3).toInt, m.group(4)) // language = 1st two chars of project name
 
     })
   }
