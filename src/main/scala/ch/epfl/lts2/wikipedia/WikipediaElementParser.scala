@@ -193,7 +193,7 @@ class WikipediaCategoryLinkParser(elementFilter: ElementFilter[WikipediaCategory
 
 class WikipediaPagecountParser(elementFilter: ElementFilter[WikipediaPagecount] = new DefaultElementFilter[WikipediaPagecount])
   extends WikipediaElementParser[WikipediaPagecount](elementFilter) {
-  val pageCountRegex = """^([a-z]{2}\.[a-z]+) (.*?) \d+|null (.*?) (\d+) ((?:[A-Z]\d+)+)$""".r
+  val pageCountRegex = """^([a-z]{2}\.[a-z]+) (.*?) (\d+|null) (.*?) (\d+) ((?:[A-Z]\d+)+)$""".r
   val titleNsRegex = """(.*?):(.*?)""".r
 
   override def parseLine(lineInput: String): List[WikipediaPagecount] = {

@@ -6,7 +6,7 @@ import java.nio.file.Paths
 import java.sql.Timestamp
 import java.time.LocalDate
 
-abstract class PagecountWriter {
+abstract class PagecountWriter extends Serializable {
   def updateMeta(startDate:LocalDate, endDate:LocalDate)
   def writeData(data:Dataset[PageVisitRow])
 }
