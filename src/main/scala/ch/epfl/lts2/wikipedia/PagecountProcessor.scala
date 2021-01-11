@@ -9,6 +9,7 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.DataTypes
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.rogach.scallop._
 
@@ -113,12 +114,14 @@ class PagecountProcessor(val languages: List[String], val parser: WikipediaEleme
                             // now all the visits modalities are counted, we can filter
                             .where($"totalDailyVisits" > minDailyVisits)
                             .select($"title", $"languageCode", $"namespace", $"totalDailyVisits", hourlyVisitUdf($"aggHourlyVisits"))
-                            .withColumnRenamed("totalDailyVisits", "dailyVisits")
+    val pageCount = visitsAgg.withColumn("dailyVisits",
+                                          visitsAgg.col("totalDailyVisits").cast(DataTypes.IntegerType))
+                            .drop("totalDailyVisits")
                             .withColumnRenamed("aggHourlyVisits", "hourlyVisits")
                             .withColumn("source", lit("web")).as[WikipediaPagecount]
 
     // finally...
-    visitsAgg.rdd.map(p => PageVisits(p.languageCode, p.title, p.namespace, getPageVisit(p, minDailyVisitsHourSplit, date)))
+    pageCount.rdd.map(p => PageVisits(p.languageCode, p.title, p.namespace, getPageVisit(p, minDailyVisitsHourSplit, date)))
   }
 
   def mergePagecount(pageDf:Dataset[WikipediaPageLang], pagecountDf:Dataset[PageVisits]): Dataset[PageVisitsIdFull] = {
