@@ -113,11 +113,11 @@ class PagecountProcessor(val languages: List[String], val parser: WikipediaEleme
                                   concat_ws("", collect_list("hourlyVisits")) as "aggHourlyVisits")
                             // now all the visits modalities are counted, we can filter
                             .where($"totalDailyVisits" > minDailyVisits)
-                            .select($"title", $"languageCode", $"namespace", $"totalDailyVisits", hourlyVisitUdf($"aggHourlyVisits"))
+                            .select($"title", $"languageCode", $"namespace", $"totalDailyVisits", hourlyVisitUdf($"aggHourlyVisits") as "mergedHourlyVisits")
     val pageCount = visitsAgg.withColumn("dailyVisits",
                                           visitsAgg.col("totalDailyVisits").cast(DataTypes.IntegerType))
                             .drop("totalDailyVisits")
-                            .withColumnRenamed("aggHourlyVisits", "hourlyVisits")
+                            .withColumnRenamed("mergedHourlyVisits", "hourlyVisits")
                             .withColumn("source", lit("web")).as[WikipediaPagecount]
 
     // finally...
