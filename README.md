@@ -29,8 +29,8 @@ Wikipedia, namely
   - [example download](https://dumps.wikimedia.org/enwiki/)
   - [table structure](https://www.mediawiki.org/wiki/Manual:Database_layout)
 * pageviews
-  - [info](https://dumps.wikimedia.org/other/pagecounts-ez/)
-  - [data download](https://dumps.wikimedia.org/other/pagecounts-ez/merged/)
+  - [info](https://dumps.wikimedia.org/other/pageview_complete/readme.html)
+  - [data download](https://dumps.wikimedia.org/other/pageview_complete/)
 
 ## Usage
 
@@ -49,7 +49,7 @@ processors in the system), e.g. unsing a command such as
 
 Every tool can be run via `spark-submit`, e.g.
 ```
-./spark-submit --class ch.epfl.lts2.wikipedia.[ToolNameHere]  --master 'local[*]' --executor-memory 4g --driver-memory 4g --packages org.rogach:scallop_2.11:3.3.1 ./sparkwiki/target/scala-2.11/sparkwiki_2.11-0.11.0.jar [ToolArgsHere]
+./spark-submit --class ch.epfl.lts2.wikipedia.[ToolNameHere]  --master 'local[*]' --executor-memory 4g --driver-memory 4g --packages org.rogach:scallop_2.11:4.0.1 ./sparkwiki/target/scala-2.11/sparkwiki_2.11-0.13.0.jar [ToolArgsHere]
 ```
 
 ### Build

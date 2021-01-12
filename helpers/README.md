@@ -40,7 +40,7 @@ We will need the dumps to build Wikipedia graph.
 3. Put the files to `/mnt/data/wikipedia/dumps/`.
 
 ### 2.2 Pagecounts
-1. Download pagecounts archive [here](https://dumps.wikimedia.org/other/pagecounts-ez/merged/). For example, if you need the data for 2019, choose the corresponding folder and download the data for the month(s) of your interest. 
+1. Download pageviews archives [here](https://dumps.wikimedia.org/other/pageview_complete/). For example, if you need the data for 2019, choose the corresponding folder and download the data for the month(s) of your interest. 
 
     **Important note:** if you download archives of multiple months/years, put them in one folder (do not create separate folders for different months/years).
 
@@ -62,8 +62,7 @@ spark-submit
 --master 'local[*]' 
 --executor-memory [amount of RAM allocated for executor (30% of available RAM)] 
 --driver-memory [amount of RAM allocated for driver (40% of available RAM)]
---packages  org.rogach:scallop_2.11:3.1.5,
-            com.datastax.spark:spark-cassandra-connector_2.11:2.4.0
+--packages  org.rogach:scallop_2.11:4.0.1
             [path to the *.jar file that we have build in the first section] 
 --dumpPath [path to raw SQL dumps]
 --outputPath [output path] 
@@ -73,7 +72,7 @@ spark-submit
 Example:
 
 ```
-spark-submit --class ch.epfl.lts2.wikipedia.DumpProcessor --master 'local[*]' --executor-memory 4g --driver-memory 4g --packages org.rogach:scallop_2.11:3.1.5,com.datastax.spark:spark-cassandra-connector_2.11:2.4.0 sparkwiki/target/scala-2.11/sparkwiki_2.11-0.8.5.jar --dumpPath /mnt/data/Datasets/wikipedia/dumps --outputPath /mnt/data/wikipedia/dumps-pre-processed/  --namePrefix enwiki-20180801
+spark-submit --class ch.epfl.lts2.wikipedia.DumpProcessor --master 'local[*]' --executor-memory 4g --driver-memory 4g --packages org.rogach:scallop_2.11:4.0.1 sparkwiki/target/scala-2.11/sparkwiki_2.11-0.13.0.jar --dumpPath /mnt/data/Datasets/wikipedia/dumps --outputPath /mnt/data/wikipedia/dumps-pre-processed/  --namePrefix enwiki-20180801
 ```
 
 After running this command you will see Spark logs in the terminal. After some time (around 30 minutes), you will have pre-processed SQL dumps stored in `/mnt/data/wikipedia/dumps-pre-processed/`.
@@ -147,8 +146,7 @@ spark-submit
 --master 'local[*]' 
 --executor-memory 10g 
 --driver-memory 10g 
---packages    org.rogach:scallop_2.11:3.1.5,
-              com.datastax.spark:spark-cassandra-connector_2.11:2.4.0
+--packages    org.rogach:scallop_2.11:4.0.1
               <SPARKWIKI LOCATION>/sparkwiki/target/scala-2.11/sparkwiki_<VERSION>.jar 
 --dumpFilePaths <PATH TO THE DUMPS, e.g. ~/data/dumps/enwiki-20190901-page.sql.bz2>
 --dumpType page 
@@ -165,9 +163,8 @@ spark-submit
 --master 'local[*]' 
 --executor-memory 10g 
 --driver-memory 10g 
---packages     org.rogach:scallop_2.11:3.1.5,
-               com.datastax.spark:spark-cassandra-connector_2.11:2.4.0,
-               com.typesafe:config:1.3.3
+--packages     org.rogach:scallop_2.11:4.0.1,
+               com.typesafe:config:1.4.1
                <SPARKWIKI LOCATION>/sparkwiki/target/scala-2.11/sparkwiki_2.11-<VERSION>.jar
 --config <SPARKWIKI LOCATION>/sparkwiki/config/pagecount.conf
 --basePath <DATA PATH>/pagecounts/2018/2018-08
@@ -232,9 +229,9 @@ spark-submit
 --master 'local[*]' 
 --executor-memory 10g 
 --driver-memory 10g 
---packages     org.rogach:scallop_2.11:3.1.5,
-               com.datastax.spark:spark-cassandra-connector_2.11:2.4.0,
-               com.typesafe:config:1.3.3
+--packages     org.rogach:scallop_2.11:4.0.1,
+               com.datastax.spark:spark-cassandra-connector_2.11:2.4.2,
+               com.typesafe:config:1.4.1
                <SPARKWIKI LOCATION>/sparkwiki/target/scala-2.11/sparkwiki_2.11-<VERSION>.jar
 --config <SPARKWIKI LOCATION>/sparkwiki/config/pagecount.conf
 --basePath <DATA PATH>/pagecounts/2018/2018-08
