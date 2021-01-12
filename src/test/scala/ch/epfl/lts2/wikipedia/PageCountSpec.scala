@@ -58,10 +58,27 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
     assert(res16th.dailyVisits == 258 && res16th.namespace == WikipediaNamespace.Page && 
               res16th.hourlyVisits == "A9B13C9D15E7F14G9H8I8J9K8L4M9N18O9P15Q17R12S10T12U7V15W15X6")
   }
+
+  "WikipediaPagecountParser" should "parse pageviews correctly" in {
+    val langList = List("en")
+    val enFilter = new ElementFilter[WikipediaPagecount] {
+      override def filterElt(t: WikipediaPagecount): Boolean = langList.contains(t.languageCode)
+    }
+    val p = new WikipediaPagecountParser(enFilter)
+
+    val pcLines = pageViews.split('\n').filter(p => !p.startsWith("#"))
+
+    val rdd = p.getRDD(spark.sparkContext.parallelize(pcLines, 2))
+    val resMap = rdd.map(w => (w.title, w)).collect().toMap
+
+    assert(resMap.keys.size == 23)
+    val res = resMap("ABC_(song)")
+    assert(res.namespace == WikipediaNamespace.Page && res.dailyVisits == 3 && res.hourlyVisits == "L2Q1")
+  }
   
   "PagecountProcessor" should "generate correct date ranges" in {
     val p = new PagecountProcessor(List("en"), new WikipediaPagecountLegacyParser(),
-                                   ConfigFactory.parseString(""), false, true)
+                                   ConfigFactory.parseString(""), false, false)
     val range = p.dateRange(LocalDate.parse("2018-08-01"), LocalDate.parse("2018-08-10"), Period.ofDays(1))
     assert(range.size == 10)
     val r2 = p.dateRange(LocalDate.parse("2017-08-01"), LocalDate.parse("2017-09-01"), Period.ofDays(1))
@@ -71,7 +88,7 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
   
   it should "update correctly pagecount metadata" in {
     val p = new PagecountProcessor(List("en"), new WikipediaPagecountLegacyParser(),
-                                   ConfigFactory.parseString(""), false, true)
+                                   ConfigFactory.parseString(""), false, false)
     val d1 = LocalDate.of(2018,6,1)
     val d2 = LocalDate.of(2018,5,1)
     val d3 = LocalDate.of(2018,6,30)
@@ -109,6 +126,25 @@ class PageCountSpec extends FlatSpec with SparkSessionTestWrapper with TestData 
     assert(res3.size == 1)
     assert(res3(0).namespace == WikipediaNamespace.Page && res3(0).visits.size == 5)
     res3(0).visits.map(p => assert(p.count == 600 && p.timeResolution == "Hour"))
+  }
+
+  it should "read and filter correctly pageviews" in {
+    val p = new PagecountProcessor(List("en"), new WikipediaPagecountParser(),
+      ConfigFactory.parseString(""), false, false)
+    val rdd = p.parseLines(spark.sparkContext.parallelize(pageViews2, 2), 100, 200, LocalDate.of(2020, 12, 1))
+    val refTime = Timestamp.valueOf(LocalDate.of(2020,12,1).atStartOfDay)
+    val res1 = rdd.filter(f => f.title == "ABC_(The_Jackson_5_song)").collect()
+    val res2 = rdd.filter(f => f.title == "ABC_(band)").collect()
+    val res3 = rdd.filter(f => f.title == "ABC_2000_Today").collect()
+    //spark.createDataFrame(rdd).show()
+    assert(res1.size == 1)
+    val ref1 = Visit(refTime, 174, "Day")
+    assert(res1(0).namespace == WikipediaNamespace.Page && res1(0).visits.size == 1 && res1(0).visits.contains(ref1))
+    assert(res2.size == 1)
+    assert(res2(0).namespace == WikipediaNamespace.Page && res2(0).visits.size == 24)
+    assert(res2(0).visits(0).count == 19 && res2(0).visits(0).timeResolution == "Hour")
+    assert(res2(0).visits(23).count == 17 && res2(0).visits(23).timeResolution == "Hour")
+    assert(res3.isEmpty)
   }
 
   it should "filter according to minimum daily visits correctly" in {
