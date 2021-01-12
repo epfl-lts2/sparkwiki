@@ -193,6 +193,36 @@ class WikipediaCategoryLinkParser(elementFilter: ElementFilter[WikipediaCategory
 
 class WikipediaPagecountParser(elementFilter: ElementFilter[WikipediaPagecount] = new DefaultElementFilter[WikipediaPagecount])
   extends WikipediaElementParser[WikipediaPagecount](elementFilter) {
+  val pageCountRegex = """^([a-z]{2}\.[a-z]+) (.*?) (\d+|null) (.*?) (\d+) ((?:[A-Z]\d+)+)$""".r
+  val titleNsRegex = """(.*?):(.*?)""".r
+
+  override def parseLine(lineInput: String): List[WikipediaPagecount] = {
+    val r = pageCountRegex.findAllIn(lineInput).matchData.toList
+    r.map(m => {
+      // extract lang code
+      val langCode = m.group(1).split('.')(0)
+      // get namespace
+      val (title, nsStr) = m.group(2) match {
+        case titleNsRegex(nsStr, title) => (title, nsStr)
+        case _ => (m.group(2), "Page")
+      }
+      val ns = nsStr match {
+        case "Page" => WikipediaNamespace.Page
+        case "Category" => WikipediaNamespace.Category
+        case "Book" => WikipediaNamespace.Book
+        case _ => WikipediaNamespace.Dummy
+      }
+      WikipediaPagecount(langCode, m.group(2), ns, m.group(4), m.group(5).toInt, m.group(6))
+    })
+  }
+  override def defaultFilterElt(t: WikipediaPagecount): Boolean = true
+
+  override def getRDD(lines: RDD[String]): RDD[WikipediaPagecount] = lines.flatMap(l => parseLine(l)).filter(filterElt)
+  def getDataFrame(session:SparkSession, data:RDD[String]):DataFrame = session.createDataFrame(getRDD(data))
+}
+
+class WikipediaPagecountLegacyParser(elementFilter: ElementFilter[WikipediaPagecount] = new DefaultElementFilter[WikipediaPagecount])
+  extends WikipediaElementParser[WikipediaPagecount](elementFilter) {
   val pageCountRegex = """^([a-z]{2}\.[a-z]) (.*?) (\d+) ((?:[A-Z]\d+)+)$""".r
   val titleNsRegex = """(.*?):(.*?)""".r
   val urlEncodeRegex = """^%[A-F\d]{2}""".r
@@ -223,7 +253,8 @@ class WikipediaPagecountParser(elementFilter: ElementFilter[WikipediaPagecount] 
       }
       // extract lang code
       val langCode = m.group(1).split('.')(0)
-      WikipediaPagecount(langCode, title, ns, m.group(3).toInt, m.group(4)) // language = 1st two chars of project name
+      // In 'old' pagecounts, there is no source so return "web"
+      WikipediaPagecount(langCode, title, ns, "web", m.group(3).toInt, m.group(4)) // language = 1st two chars of project name
 
     })
   }
