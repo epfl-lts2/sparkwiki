@@ -1,6 +1,6 @@
 # SparkWiki - processing tools for Wikipedia data
 
-![Build Status](https://github.com/epfl-lts2/sparkwiki/actions/workflows/ci.yml/badge.svg)
+![Build Status](https://github.com/epfl-lts2/sparkwiki/actions/workflows/build.yml/badge.svg)
 
 ### Use cases
 SparkWiki toolkit can be used in various scenarios where you are interested in researching Wikipedia graph and pageview statistics. Graph and pageviews can be used and studied separately. You can see a few examples below.
