@@ -1,7 +1,7 @@
 import Dependencies._
 ThisBuild / organization := "ch.epfl.lts2"
 ThisBuild / scalaVersion := "2.12.16"
-ThisBuild / version := "0.13.1"
+ThisBuild / version := "1.0.0"
 lazy val root = (project in file(".")).
   settings(
     name := "SparkWiki",
