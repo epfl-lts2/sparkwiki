@@ -47,5 +47,5 @@ jobs:
         run: sbt ++${{ matrix.scala }} compile
 
       - name: Run tests
-        run: sbt ++{{ matrix.scala }} test
+        run: sbt ++${{ matrix.scala }} test
 
