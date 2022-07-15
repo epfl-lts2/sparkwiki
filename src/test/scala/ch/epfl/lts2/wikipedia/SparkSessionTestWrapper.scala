@@ -3,11 +3,8 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
 
 trait SparkSessionTestWrapper {
-  val conf = new SparkConf()
-    .setAppName("spark test runner")
-    .setMaster("local")
-    .set("spark.driver.host", "localhost")
   lazy val spark: SparkSession = {
-    SparkSession.builder().config(conf).getOrCreate()
+    SparkSession.builder.master("local")
+      .appName("spark test runner").config("spark.driver.host", "localhost").getOrCreate
   }
 }
