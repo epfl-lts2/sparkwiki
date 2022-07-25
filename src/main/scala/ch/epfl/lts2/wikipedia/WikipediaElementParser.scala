@@ -39,7 +39,7 @@ class WikipediaPageParser(elementFilter: ElementFilter[WikipediaPage] = new Defa
 `page_id` int(8) unsigned NOT NULL AUTO_INCREMENT,
 `page_namespace` int(11) NOT NULL DEFAULT '0',
 `page_title` varbinary(255) NOT NULL DEFAULT '',
-`page_restrictions` tinyblob NOT NULL,
+[`page_restrictions` tinyblob NOT NULL,]
 `page_counter` bigint(20) unsigned NOT NULL DEFAULT '0',
 `page_is_redirect` tinyint(1) unsigned NOT NULL DEFAULT '0',
 `page_is_new` tinyint(1) unsigned NOT NULL DEFAULT '0',
@@ -56,10 +56,10 @@ class WikipediaPageParser(elementFilter: ElementFilter[WikipediaPage] = new Defa
   def parseLine(lineInput:String):List[WikipediaPage] = {
   
     val r = pageRegex.findAllIn(lineInput).matchData.toList
-    r.map(m =>  WikipediaPage(m.group(1).toInt, m.group(2).toInt, m.group(3), m.group(4),
-                        m.group(5).toInt == 1, m.group(6).toInt == 1, m.group(7).toDouble, 
-                        new Timestamp(timestampFormat.parse(m.group(8)).getTime), m.group(9), m.group(10).toInt, 
-                        m.group(11).toInt, m.group(12)))
+    r.map(m =>  WikipediaPage(m.group(1).toInt, m.group(2).toInt, m.group(3),
+                        m.group(4).toInt == 1, m.group(5).toInt == 1, m.group(6).toDouble,
+                        new Timestamp(timestampFormat.parse(m.group(7)).getTime), m.group(8), m.group(9).toInt,
+                        m.group(10).toInt, m.group(12)))
       
   }
 

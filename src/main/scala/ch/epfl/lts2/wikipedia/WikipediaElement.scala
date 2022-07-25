@@ -55,6 +55,6 @@ case class MergedPageLink(from:Int, id:Int, title:String, fromNamespace:Int, nam
 case class MergedRedirect(from:Int, id:Int, title:String) extends WikipediaElement
 case class MergedCatlink(from:Int, id:Int, title:String, ctype:String) extends WikipediaElement
 
-case class WikipediaPageLang(id:Int, namespace:Int, title:String, restriction:String,
+case class WikipediaPageLang(id:Int, namespace:Int, title:String,
                          isRedirect:Boolean, isNew:Boolean, random:Double, touched:Timestamp, linksUpdated:String,
                          latest:Int, len:Int, contentModel:String, languageCode:String) extends WikipediaElement
