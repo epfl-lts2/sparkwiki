@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  pull_request:
+    branches: ['**']
+  push:
+    branches: ['**']
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build:
+    name: Build and Test
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
+        scala: [2.12.16]
+        java-jdk: [temurin]
+        java-version: [11]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout current branch (full)
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java ${{ matrix.java-jdk }}@${{ matrix.java-version }}
+        uses: actions/setup-java@v2
+        with:
+          distribution: ${{ matrix.java-jdk }}
+          java-version: ${{ matrix.java-version }}
+
+      - name: Cache sbt
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2/cache
+            ~/.coursier/cache/v1
+            ~/.cache/coursier/v1
+            ~/AppData/Local/Coursier/Cache/v1
+            ~/Library/Caches/Coursier/v1
+          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
+
+      - name: Build project
+        run: sbt ++${{ matrix.scala }} compile
+
+      - name: Run tests
+        run: sbt ++${{ matrix.scala }} test
+

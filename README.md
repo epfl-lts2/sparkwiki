@@ -1,6 +1,6 @@
 # SparkWiki - processing tools for Wikipedia data
 
-[![Build Status](https://travis-ci.com/epfl-lts2/sparkwiki.svg?branch=master)](https://travis-ci.com/epfl-lts2/sparkwiki)
+![Build Status](https://github.com/epfl-lts2/sparkwiki/actions/workflows/build.yml/badge.svg)
 
 ### Use cases
 SparkWiki toolkit can be used in various scenarios where you are interested in researching Wikipedia graph and pageview statistics. Graph and pageviews can be used and studied separately. You can see a few examples below.
@@ -22,7 +22,7 @@ Another project used this toolkit to pre-process pagecounts. The project's goal 
 A knowledge-graph project used SparkWiki toolkit to construct a Wikipedia-based knowledge graph. See more details [here](http://www.inf.u-szeged.hu/~london/publ/AutoTaxLisboaPoster.pdf)
 
 ## Basics
-Sparkwiki is a set of tools written in Scala (2.11) that aims at processing data from 
+Sparkwiki is a set of tools written in Scala (2.12) that aims at processing data from 
 Wikipedia, namely 
 * SQL table dumps 
   - [info](https://meta.wikimedia.org/wiki/Data_dumps)
@@ -49,7 +49,7 @@ processors in the system), e.g. unsing a command such as
 
 Every tool can be run via `spark-submit`, e.g.
 ```
-./spark-submit --class ch.epfl.lts2.wikipedia.[ToolNameHere]  --master 'local[*]' --executor-memory 4g --driver-memory 4g --packages org.rogach:scallop_2.11:4.0.1 ./sparkwiki/target/scala-2.11/sparkwiki_2.11-0.13.0.jar [ToolArgsHere]
+./spark-submit --class ch.epfl.lts2.wikipedia.[ToolNameHere]  --master 'local[*]' --executor-memory 4g --driver-memory 4g --packages org.rogach:scallop_2.12:4.1.0 ./sparkwiki/target/scala-2.12/sparkwiki_2.12-1.0.0.jar [ToolArgsHere]
 ```
 
 ### Build
