@@ -51,7 +51,7 @@ class WikipediaPageParser(elementFilter: ElementFilter[WikipediaPage] = new Defa
 `page_content_model` varbinary(32) DEFAULT NULL,
 `page_lang` varbinary(35) DEFAULT NULL,
    */
-  val pageRegex = """\((\d+),(\d+),'(.*?)','(.*?)',([01]),([01]),([\d\.]+?),'(\d{14})',(.*?),(\d+),(\d+),(.*?),(.*?)\)""".r
+  val pageRegex = """\((\d+),(\d+),'(.*?)'(?:,'.*?')?,([01]),([01]),([\d\.]+?),'(\d{14})',(.*?),(\d+),(\d+),(.*?),(.*?)\)""".r
   val timestampFormat = new SimpleDateFormat("yyyyMMddHHmmss") 
   def parseLine(lineInput:String):List[WikipediaPage] = {
   

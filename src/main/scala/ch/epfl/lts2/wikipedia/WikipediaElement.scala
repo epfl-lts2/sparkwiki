@@ -29,7 +29,7 @@ case class DumpInfo(langCode:String, dateCode:String, dumpType:String)
 
 abstract class WikipediaElement extends Serializable
 
-case class WikipediaPage(id:Int, namespace:Int, title:String, restriction:String, 
+case class WikipediaPage(id:Int, namespace:Int, title:String,
                           isRedirect:Boolean, isNew:Boolean, random:Double, touched:Timestamp, linksUpdated:String,
                           latest:Int, len:Int, contentModel:String) extends WikipediaElement
                           
