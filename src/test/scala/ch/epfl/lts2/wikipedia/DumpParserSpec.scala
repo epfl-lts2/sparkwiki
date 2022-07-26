@@ -7,8 +7,8 @@ import org.apache.spark.sql.{SQLContext, Row, DataFrame, SparkSession}
 
 
 class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData {
-  
-  
+
+
   "DumpParser" should "split sql insert statements correctly" in {
   
     val dp = new DumpParser
@@ -38,6 +38,20 @@ class DumpParserSpec extends FlatSpec with SparkSessionTestWrapper with TestData
     assert(r13.namespace == 0 && r13.title == "AfghanistanHistory" && !r13.isNew && r13.isRedirect)
     val r258 = res(258)
     assert(r258.namespace == 0 && r258.title == "AnchorageAlaska" && !r258.isNew && r258.isRedirect)
+  }
+
+  it should "parse page insert statement (without restriction field) correctly into dataframe" in {
+    import spark.implicits._
+    val dp = new DumpParser
+    val df = dp.processToDf(spark, spark.sparkContext.parallelize(Seq(sqlPageTest), 2),
+      WikipediaDumpType.Page)
+
+    val res = df.as[WikipediaPage].collect().map(f => (f.id, f)).toMap
+    assert(res.keys.size == 7)
+    val r8 = res(8)
+    assert(r8.namespace == 0 && r8.title == "Ilyanep" && !r8.isNew && !r8.isRedirect)
+    val r18 = res(18)
+    assert(r18.namespace == 14 && r18.title == "Aboutsite" && r18.isNew && !r18.isRedirect)
   }
 
   
