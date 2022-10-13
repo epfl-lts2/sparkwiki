@@ -1,4 +1,4 @@
-image: adoptopenjdk/openjdk11:ubuntu-jre
+image: eclipse-temurin:11-jdk
 
 before_script:
   # Enable the usage of sources over https
