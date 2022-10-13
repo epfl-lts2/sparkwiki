@@ -3,7 +3,7 @@ image: adoptopenjdk/openjdk11:ubuntu-jre
 before_script:
   # Enable the usage of sources over https
   - apt-get update -yqq
-  - apt-get install apt-transport-https -yqq
+  - apt-get install apt-transport-https gpg -yqq
   # Add keyserver for SBT
   - echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
   - mkdir -p /root/.gnupg
